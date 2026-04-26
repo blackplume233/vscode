@@ -64,6 +64,9 @@ const enum DefaultAccountStatus {
 const CONTEXT_DEFAULT_ACCOUNT_STATE = new RawContextKey<string>('defaultAccountStatus', DefaultAccountStatus.Uninitialized);
 const CACHED_POLICY_DATA_KEY = 'defaultAccount.cachedPolicyData';
 const ACCOUNT_DATA_POLL_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
+const GAS_DEFAULT_CHAT_AGENT_EXTENSION_ID = 'blackplume.game-agent-studio';
+const GAS_MOCK_ACCOUNT_NAME = 'Mock GAS User';
+const GAS_MOCK_SESSION_ID = 'gas-mock-session';
 
 interface ITokenEntitlementsResponse {
 	token: string;
@@ -108,6 +111,116 @@ function toDefaultAccountConfig(defaultChatAgent: IDefaultChatAgent): IDefaultAc
 		tokenEntitlementUrl: defaultChatAgent.tokenEntitlementUrl,
 		mcpRegistryDataUrl: defaultChatAgent.mcpRegistryDataUrl,
 	};
+}
+
+function isGameAgentStudioDefaultChatAgent(defaultChatAgent: IDefaultChatAgent): boolean {
+	return defaultChatAgent.extensionId === GAS_DEFAULT_CHAT_AGENT_EXTENSION_ID;
+}
+
+function createGasMockEntitlementsData(): IEntitlementsData {
+	return {
+		access_type_sku: 'free_limited_copilot',
+		chat_enabled: true,
+		assigned_date: '2026-01-01T00:00:00.000Z',
+		can_signup_for_limited: false,
+		copilot_plan: 'free',
+		organization_login_list: ['game-agent-studio'],
+		analytics_tracking_id: 'gas-mock',
+		quota_reset_date_utc: '2099-12-31T23:59:59.000Z',
+		quota_snapshots: {
+			chat: {
+				entitlement: 10000,
+				overage_count: 0,
+				overage_permitted: false,
+				percent_remaining: 100,
+				remaining: 10000,
+				unlimited: true
+			},
+			completions: {
+				entitlement: 10000,
+				overage_count: 0,
+				overage_permitted: false,
+				percent_remaining: 100,
+				remaining: 10000,
+				unlimited: true
+			}
+		}
+	};
+}
+
+class GasDefaultAccountProvider extends Disposable implements IDefaultAccountProvider {
+
+	private _defaultAccount: IDefaultAccount | null = null;
+	get defaultAccount(): IDefaultAccount | null { return this._defaultAccount; }
+	get policyData(): IPolicyData | null { return this._defaultAccount ? this.mockPolicyData : null; }
+	get copilotTokenInfo(): ICopilotTokenInfo | null { return this._defaultAccount ? this.mockCopilotTokenInfo : null; }
+
+	private readonly authenticationProvider: IDefaultAccountAuthenticationProvider;
+	private readonly mockPolicyData: IPolicyData = {
+		mcp: true,
+		chat_preview_features_enabled: true,
+		chat_agent_enabled: true,
+		mcpAccess: 'allow_all'
+	};
+	private readonly mockCopilotTokenInfo: ICopilotTokenInfo = {
+		sn: 'gas-mock',
+		fcv1: 'gas-mock'
+	};
+
+	private readonly _onDidChangeDefaultAccount = this._register(new Emitter<IDefaultAccount | null>());
+	readonly onDidChangeDefaultAccount = this._onDidChangeDefaultAccount.event;
+
+	private readonly _onDidChangePolicyData = this._register(new Emitter<IPolicyData | null>());
+	readonly onDidChangePolicyData = this._onDidChangePolicyData.event;
+
+	private readonly _onDidChangeCopilotTokenInfo = this._register(new Emitter<ICopilotTokenInfo | null>());
+	readonly onDidChangeCopilotTokenInfo = this._onDidChangeCopilotTokenInfo.event;
+
+	constructor(
+		private readonly defaultAccountConfig: IDefaultAccountConfig,
+		@ILogService private readonly logService: ILogService,
+	) {
+		super();
+		this.authenticationProvider = {
+			...this.defaultAccountConfig.authenticationProvider.default,
+			enterprise: false
+		};
+	}
+
+	getDefaultAccountAuthenticationProvider(): IDefaultAccountAuthenticationProvider {
+		return this.authenticationProvider;
+	}
+
+	async refresh(_options?: { forceRefresh?: boolean }): Promise<IDefaultAccount | null> {
+		return this._defaultAccount;
+	}
+
+	async signIn(_options?: { additionalScopes?: readonly string[];[key: string]: unknown }): Promise<IDefaultAccount | null> {
+		this.logService.info('[GasDefaultAccount] Signing in with mock account');
+		this.setDefaultAccount({
+			authenticationProvider: this.authenticationProvider,
+			accountName: GAS_MOCK_ACCOUNT_NAME,
+			sessionId: GAS_MOCK_SESSION_ID,
+			enterprise: false,
+			entitlementsData: createGasMockEntitlementsData()
+		});
+		return this._defaultAccount;
+	}
+
+	async signOut(): Promise<void> {
+		this.logService.info('[GasDefaultAccount] Signing out mock account');
+		this.setDefaultAccount(null);
+	}
+
+	private setDefaultAccount(account: IDefaultAccount | null): void {
+		if (equals(this._defaultAccount, account)) {
+			return;
+		}
+		this._defaultAccount = account;
+		this._onDidChangeDefaultAccount.fire(this._defaultAccount);
+		this._onDidChangePolicyData.fire(this.policyData);
+		this._onDidChangeCopilotTokenInfo.fire(this.copilotTokenInfo);
+	}
 }
 
 export class DefaultAccountService extends Disposable implements IDefaultAccountService {
@@ -926,7 +1039,10 @@ class DefaultAccountProviderContribution extends Disposable implements IWorkbenc
 		@IDefaultAccountService defaultAccountService: IDefaultAccountService,
 	) {
 		super();
-		const defaultAccountProvider = this._register(instantiationService.createInstance(DefaultAccountProvider, toDefaultAccountConfig(productService.defaultChatAgent)));
+		const defaultAccountConfig = toDefaultAccountConfig(productService.defaultChatAgent);
+		const defaultAccountProvider = this._register(isGameAgentStudioDefaultChatAgent(productService.defaultChatAgent)
+			? instantiationService.createInstance(GasDefaultAccountProvider, defaultAccountConfig)
+			: instantiationService.createInstance(DefaultAccountProvider, defaultAccountConfig));
 		defaultAccountService.setDefaultAccountProvider(defaultAccountProvider);
 	}
 }

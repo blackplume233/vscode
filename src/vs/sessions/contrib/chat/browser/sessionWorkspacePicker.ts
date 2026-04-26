@@ -335,11 +335,17 @@ export class WorkspacePicker extends Disposable {
 		}
 	}
 
+	private _getGasScopedProviders(): ReturnType<ISessionsProvidersService['getProviders']> {
+		const allProviders = this.sessionsProvidersService.getProviders();
+		const gasProvider = allProviders.find(p => p.id === 'game-agent');
+		return gasProvider ? [gasProvider] : allProviders;
+	}
+
 	/**
 	 * Collects browse actions from all registered providers.
 	 */
 	protected _getAllBrowseActions(): ISessionWorkspaceBrowseAction[] {
-		return this.sessionsProvidersService.getProviders().flatMap(p => p.browseActions);
+		return this._getGasScopedProviders().flatMap(p => p.browseActions);
 	}
 
 	/**
@@ -353,7 +359,7 @@ export class WorkspacePicker extends Disposable {
 		const items: IActionListItem<IWorkspacePickerItem>[] = [];
 
 		// Collect recent workspaces from picker storage across all providers
-		const allProviders = this.sessionsProvidersService.getProviders();
+		const allProviders = this._getGasScopedProviders();
 		const providerIds = new Set(allProviders.map(p => p.id));
 		const ownRecentWorkspaces = this._getRecentWorkspaces().filter(w => providerIds.has(w.providerId));
 

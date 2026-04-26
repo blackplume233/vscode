@@ -25,6 +25,7 @@ export type WalkthroughOutcome = 'completed' | 'dismissed';
 const fadeDuration = 200;
 const resetMessageDuration = 2000;
 const dismissDuration = 250;
+const GAS_DEFAULT_CHAT_AGENT_EXTENSION_ID = 'blackplume.game-agent-studio';
 const fallbackChatAgentLinks = {
 	termsStatementUrl: 'https://aka.ms/github-copilot-terms-statement',
 	privacyStatementUrl: 'https://aka.ms/github-copilot-privacy-statement',
@@ -121,8 +122,14 @@ export class SessionsWalkthroughOverlay extends Disposable {
 		append(layout, $('div.sessions-walkthrough-logo'));
 
 		const right = append(layout, $('.sessions-walkthrough-hero-text'));
-		const titleEl = append(right, $('h2', undefined, localize('walkthrough.step1.title', "Welcome to Agents")));
-		const subtitleEl = append(right, $('p', undefined, localize('walkthrough.step1.subtitle', "Sign in to continue with agent-powered development.")));
+		const isGasDefaultChatAgent = this._isGameAgentStudioDefaultChatAgent();
+		const providerName = this.productService.defaultChatAgent?.provider?.default?.name ?? 'Game Agent Studio';
+		const titleEl = append(right, $('h2', undefined, isGasDefaultChatAgent
+			? localize('walkthrough.gas.title', "Welcome to Game Agent Studio")
+			: localize('walkthrough.step1.title', "Welcome to Agents")));
+		const subtitleEl = append(right, $('p', undefined, isGasDefaultChatAgent
+			? localize('walkthrough.gas.subtitle', "Continue with a local mock account to use Game Agent Studio sessions.")
+			: localize('walkthrough.step1.subtitle', "Sign in to continue with agent-powered development.")));
 
 		// If already signed in, finish immediately so the app can render.
 		if (this._isAlreadySetUp()) {
@@ -134,11 +141,13 @@ export class SessionsWalkthroughOverlay extends Disposable {
 		const providerRow = append(signInActions, $('.sessions-walkthrough-providers-row'));
 
 		const githubBtn = append(providerRow, $('button.sessions-walkthrough-provider-btn.sessions-walkthrough-provider-primary.provider-github')) as HTMLButtonElement;
-		append(githubBtn, $('span.sessions-walkthrough-provider-label', undefined, localize('walkthrough.signin.github', "Continue with GitHub")));
+		append(githubBtn, $('span.sessions-walkthrough-provider-label', undefined, isGasDefaultChatAgent
+			? localize('walkthrough.signin.gas', "Continue with {0}", providerName)
+			: localize('walkthrough.signin.github', "Continue with GitHub")));
 
 		// Desktop-only provider buttons
 		let providerButtons: HTMLButtonElement[];
-		if (isWeb) {
+		if (isGasDefaultChatAgent || isWeb) {
 			providerButtons = [githubBtn];
 		} else {
 			const googleBtn = append(providerRow, $('button.sessions-walkthrough-provider-btn.sessions-walkthrough-provider-icon-only.provider-google')) as HTMLButtonElement;
@@ -171,7 +180,16 @@ export class SessionsWalkthroughOverlay extends Disposable {
 
 		this.currentFocusableElements = [...providerButtons, ...this.disclaimerLinks];
 
-		if (isWeb) {
+		if (isGasDefaultChatAgent) {
+			stepDisposables.add(addDisposableListener(githubBtn, EventType.CLICK, () => this._runSignIn(
+				providerButtons,
+				errorContainer,
+				ChatSetupStrategy.DefaultSetup,
+				titleEl,
+				subtitleEl,
+				signInActions
+			)));
+		} else if (isWeb) {
 			// Web: GitHub button uses IAuthenticationService directly
 			stepDisposables.add(addDisposableListener(githubBtn, EventType.CLICK, () => this._runSignInWeb(
 				providerButtons,
@@ -210,6 +228,10 @@ export class SessionsWalkthroughOverlay extends Disposable {
 			entitlement !== ChatEntitlement.Available &&
 			!(entitlement === ChatEntitlement.Unknown && !this.chatEntitlementService.anonymous)
 		);
+	}
+
+	private _isGameAgentStudioDefaultChatAgent(): boolean {
+		return this.productService.defaultChatAgent?.extensionId === GAS_DEFAULT_CHAT_AGENT_EXTENSION_ID;
 	}
 
 	private async _runSignIn(providerButtons: HTMLButtonElement[], error: HTMLElement, strategy: ChatSetupStrategy, titleEl: HTMLElement, subtitleEl: HTMLElement, signInActions: HTMLElement): Promise<void> {
@@ -420,6 +442,10 @@ export class SessionsWalkthroughOverlay extends Disposable {
 	private _createDisclaimer(): { element: HTMLElement; links: readonly HTMLAnchorElement[] } {
 		const defaultChatAgent = this.productService.defaultChatAgent;
 		const disclaimer = append(this.overlay, $('p.sessions-walkthrough-disclaimer.hidden'));
+		if (this._isGameAgentStudioDefaultChatAgent()) {
+			return { element: disclaimer, links: [] };
+		}
+
 		const termsStatementUrl = defaultChatAgent?.termsStatementUrl || fallbackChatAgentLinks.termsStatementUrl;
 		const privacyStatementUrl = defaultChatAgent?.privacyStatementUrl || fallbackChatAgentLinks.privacyStatementUrl;
 		const publicCodeMatchesUrl = defaultChatAgent?.publicCodeMatchesUrl || fallbackChatAgentLinks.publicCodeMatchesUrl;

@@ -12,6 +12,11 @@ import { ISessionsProvidersService } from '../../../services/sessions/browser/se
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { IConfigurationRegistry, Extensions as ConfigurationExtensions } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { localize } from '../../../../nls.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { AgentHostEnabledSettingId } from '../../../../platform/agentHost/common/agentService.js';
+import { IProductService } from '../../../../platform/product/common/productService.js';
+
+const GAS_DEFAULT_CHAT_AGENT_EXTENSION_ID = 'blackplume.game-agent-studio';
 
 Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).registerConfiguration({
 	id: 'sessions',
@@ -47,8 +52,21 @@ class DefaultSessionsProviderContribution extends Disposable implements IWorkben
 	constructor(
 		@IInstantiationService instantiationService: IInstantiationService,
 		@ISessionsProvidersService sessionsProvidersService: ISessionsProvidersService,
+		@IConfigurationService configurationService: IConfigurationService,
+		@IProductService productService: IProductService,
 	) {
 		super();
+
+		if (productService.defaultChatAgent?.extensionId === GAS_DEFAULT_CHAT_AGENT_EXTENSION_ID) {
+			return;
+		}
+
+		// When the local agent host is enabled, skip registering the
+		// default CopilotChat provider so only the local agent host
+		// provider is active.
+		if (configurationService.getValue<boolean>(AgentHostEnabledSettingId)) {
+			return;
+		}
 
 		const provider = this._register(instantiationService.createInstance(CopilotChatSessionsProvider));
 		this._register(sessionsProvidersService.registerProvider(provider));

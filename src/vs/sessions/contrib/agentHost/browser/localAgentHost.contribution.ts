@@ -7,12 +7,15 @@ import { Disposable, DisposableMap } from '../../../../base/common/lifecycle.js'
 import { AgentHostEnabledSettingId } from '../../../../platform/agentHost/common/agentService.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
+import { IProductService } from '../../../../platform/product/common/productService.js';
 import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase } from '../../../../workbench/common/contributions.js';
 import { AgentHostContribution } from '../../../../workbench/contrib/chat/browser/agentSessions/agentHost/agentHostChatContribution.js';
 import { IAgentHostSessionWorkingDirectoryResolver } from '../../../../workbench/contrib/chat/browser/agentSessions/agentHost/agentHostSessionWorkingDirectoryResolver.js';
 import { AgentHostTerminalContribution } from '../../../../workbench/contrib/chat/browser/agentSessions/agentHost/agentHostTerminalContribution.js';
 import { ISessionsProvidersService } from '../../../services/sessions/browser/sessionsProvidersService.js';
 import { LocalAgentHostSessionsProvider } from './localAgentHostSessionsProvider.js';
+
+const GAS_DEFAULT_CHAT_AGENT_EXTENSION_ID = 'blackplume.game-agent-studio';
 
 /**
  * Registers the {@link LocalAgentHostSessionsProvider} as a sessions provider
@@ -33,8 +36,13 @@ class LocalAgentHostContribution extends Disposable implements IWorkbenchContrib
 		@IInstantiationService instantiationService: IInstantiationService,
 		@ISessionsProvidersService sessionsProvidersService: ISessionsProvidersService,
 		@IAgentHostSessionWorkingDirectoryResolver workingDirectoryResolver: IAgentHostSessionWorkingDirectoryResolver,
+		@IProductService productService: IProductService,
 	) {
 		super();
+
+		if (productService.defaultChatAgent?.extensionId === GAS_DEFAULT_CHAT_AGENT_EXTENSION_ID) {
+			return;
+		}
 
 		if (!configurationService.getValue<boolean>(AgentHostEnabledSettingId)) {
 			return;
