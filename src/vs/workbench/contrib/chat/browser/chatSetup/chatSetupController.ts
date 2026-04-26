@@ -38,6 +38,7 @@ const defaultChat = {
 	providerUriSetting: product.defaultChatAgent?.providerUriSetting ?? '',
 	completionsAdvancedSetting: product.defaultChatAgent?.completionsAdvancedSetting ?? '',
 };
+const GAS_DEFAULT_CHAT_AGENT_EXTENSION_ID = 'blackplume.game-agent-studio';
 
 export interface IChatSetupControllerOptions {
 	readonly forceSignIn?: boolean;
@@ -260,6 +261,11 @@ export class ChatSetupController extends Disposable {
 	}
 
 	private async doInstall(): Promise<void> {
+		if (this.productService.defaultChatAgent.extensionId === GAS_DEFAULT_CHAT_AGENT_EXTENSION_ID) {
+			this.logService.info('[chat setup] Skipping extension marketplace install for Game Agent Studio');
+			return;
+		}
+
 		await this.extensionsWorkbenchService.install(defaultChat.chatExtensionId, {
 			enable: true,
 			isApplicationScoped: true, 	// install into all profiles
