@@ -34,6 +34,7 @@ import { ISessionWorkspace, ISessionWorkspaceBrowseAction } from '../../../servi
 import { ISessionsProvidersService } from '../../../services/sessions/browser/sessionsProvidersService.js';
 import { IAgentHostSessionsProvider, isAgentHostProvider } from '../../../common/agentHostSessionsProvider.js';
 import { COPILOT_PROVIDER_ID } from '../../copilotChatSessions/browser/copilotChatSessionsProvider.js';
+import { IProductService } from '../../../../platform/product/common/productService.js';
 import { IWorkspacesService, isRecentFolder } from '../../../../platform/workspaces/common/workspaces.js';
 import { Menus } from '../../../browser/menus.js';
 
@@ -135,6 +136,7 @@ export class WorkspacePicker extends Disposable {
 		@IWorkspacesService private readonly workspacesService: IWorkspacesService,
 		@IMenuService private readonly menuService: IMenuService,
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
+		@IProductService private readonly productService: IProductService,
 	) {
 		super();
 
@@ -335,17 +337,21 @@ export class WorkspacePicker extends Disposable {
 		}
 	}
 
-	private _getGasScopedProviders(): ReturnType<ISessionsProvidersService['getProviders']> {
+	private _getNativeScopedProviders(): ReturnType<ISessionsProvidersService['getProviders']> {
+		const nativeProviderId = this.productService.defaultChatAgent?.nativeSessionsProviderId;
+		if (!nativeProviderId) {
+			return this.sessionsProvidersService.getProviders();
+		}
 		const allProviders = this.sessionsProvidersService.getProviders();
-		const gasProvider = allProviders.find(p => p.id === 'game-agent');
-		return gasProvider ? [gasProvider] : allProviders;
+		const nativeProvider = allProviders.find(p => p.id === nativeProviderId);
+		return nativeProvider ? [nativeProvider] : allProviders;
 	}
 
 	/**
 	 * Collects browse actions from all registered providers.
 	 */
 	protected _getAllBrowseActions(): ISessionWorkspaceBrowseAction[] {
-		return this._getGasScopedProviders().flatMap(p => p.browseActions);
+		return this._getNativeScopedProviders().flatMap(p => p.browseActions);
 	}
 
 	/**
@@ -359,7 +365,7 @@ export class WorkspacePicker extends Disposable {
 		const items: IActionListItem<IWorkspacePickerItem>[] = [];
 
 		// Collect recent workspaces from picker storage across all providers
-		const allProviders = this._getGasScopedProviders();
+		const allProviders = this._getNativeScopedProviders();
 		const providerIds = new Set(allProviders.map(p => p.id));
 		const ownRecentWorkspaces = this._getRecentWorkspaces().filter(w => providerIds.has(w.providerId));
 

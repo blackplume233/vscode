@@ -15,8 +15,6 @@ import { AgentHostTerminalContribution } from '../../../../workbench/contrib/cha
 import { ISessionsProvidersService } from '../../../services/sessions/browser/sessionsProvidersService.js';
 import { LocalAgentHostSessionsProvider } from './localAgentHostSessionsProvider.js';
 
-const GAS_DEFAULT_CHAT_AGENT_EXTENSION_ID = 'blackplume.game-agent-studio';
-
 /**
  * Registers the {@link LocalAgentHostSessionsProvider} as a sessions provider
  * when `chat.agentHost.enabled` is true.
@@ -40,7 +38,7 @@ class LocalAgentHostContribution extends Disposable implements IWorkbenchContrib
 	) {
 		super();
 
-		if (productService.defaultChatAgent?.extensionId === GAS_DEFAULT_CHAT_AGENT_EXTENSION_ID) {
+		if (productService.defaultChatAgent?.nativeSessionsProviderId != null) {
 			return;
 		}
 

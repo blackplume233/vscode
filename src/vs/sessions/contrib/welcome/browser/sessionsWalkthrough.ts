@@ -18,6 +18,7 @@ import { IAuthenticationService } from '../../../../workbench/services/authentic
 import { URI } from '../../../../base/common/uri.js';
 import { CHAT_SETUP_SUPPORT_ANONYMOUS_ACTION_ID } from '../../../../workbench/contrib/chat/browser/actions/chatActions.js';
 import { ChatSetupStrategy } from '../../../../workbench/contrib/chat/browser/chatSetup/chatSetup.js';
+import { GAME_AGENT_EXTENSION_ID } from '../../../contrib/gameAgent/common/gameAgentTypes.js';
 import { IExtensionService } from '../../../../workbench/services/extensions/common/extensions.js';
 
 export type WalkthroughOutcome = 'completed' | 'dismissed';
@@ -25,7 +26,6 @@ export type WalkthroughOutcome = 'completed' | 'dismissed';
 const fadeDuration = 200;
 const resetMessageDuration = 2000;
 const dismissDuration = 250;
-const GAS_DEFAULT_CHAT_AGENT_EXTENSION_ID = 'blackplume.game-agent-studio';
 const fallbackChatAgentLinks = {
 	termsStatementUrl: 'https://aka.ms/github-copilot-terms-statement',
 	privacyStatementUrl: 'https://aka.ms/github-copilot-privacy-statement',
@@ -231,7 +231,7 @@ export class SessionsWalkthroughOverlay extends Disposable {
 	}
 
 	private _isGameAgentStudioDefaultChatAgent(): boolean {
-		return this.productService.defaultChatAgent?.extensionId === GAS_DEFAULT_CHAT_AGENT_EXTENSION_ID;
+		return this.productService.defaultChatAgent?.extensionId === GAME_AGENT_EXTENSION_ID;
 	}
 
 	private async _runSignIn(providerButtons: HTMLButtonElement[], error: HTMLElement, strategy: ChatSetupStrategy, titleEl: HTMLElement, subtitleEl: HTMLElement, signInActions: HTMLElement): Promise<void> {

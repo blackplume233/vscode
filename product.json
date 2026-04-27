@@ -99,9 +99,11 @@
 		"providerScopes": [],
 		"providerUriSetting": "gas.auth.uri",
 		"completionsAdvancedSetting": "gas.advanced",
-		"entitlementUrl": "",
-		"tokenEntitlementUrl": "",
-		"mcpRegistryDataUrl": ""
+		"entitlementUrl": "http://127.0.0.1:34590/entitlements",
+		"tokenEntitlementUrl": "http://127.0.0.1:34590/token-entitlements",
+		"mcpRegistryDataUrl": "",
+		"nativeSessionsProviderId": "game-agent",
+		"skipExtensionInstall": true
 	},
 	"extensionAllowedProposedApi": [
 		"blackplume.game-agent-studio"

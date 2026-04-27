@@ -16,8 +16,6 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { AgentHostEnabledSettingId } from '../../../../platform/agentHost/common/agentService.js';
 import { IProductService } from '../../../../platform/product/common/productService.js';
 
-const GAS_DEFAULT_CHAT_AGENT_EXTENSION_ID = 'blackplume.game-agent-studio';
-
 Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).registerConfiguration({
 	id: 'sessions',
 	properties: {
@@ -57,7 +55,7 @@ class DefaultSessionsProviderContribution extends Disposable implements IWorkben
 	) {
 		super();
 
-		if (productService.defaultChatAgent?.extensionId === GAS_DEFAULT_CHAT_AGENT_EXTENSION_ID) {
+		if (productService.defaultChatAgent?.nativeSessionsProviderId != null) {
 			return;
 		}
 
