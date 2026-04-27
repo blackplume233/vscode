@@ -437,6 +437,7 @@ import './contrib/chat/browser/chat.contribution.js';
 import './contrib/chat/browser/agentHost/agentHostSessionConfigPicker.js';
 import './contrib/chat/browser/customizationsDebugLog.contribution.js';
 import './contrib/copilotChatSessions/browser/copilotChatSessions.contribution.js';
+import './contrib/extensionSessionsBridge/browser/extensionSessionsBridge.contribution.js';
 import './contrib/sessions/browser/sessions.contribution.js';
 import './contrib/sessions/browser/views/sessionsListModelService.js';
 import './contrib/remoteAgentHost/browser/agentHostFilterService.js';
