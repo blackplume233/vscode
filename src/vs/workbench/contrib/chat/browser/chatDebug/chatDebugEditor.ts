@@ -31,7 +31,6 @@ import { ChatDebugHomeView } from './chatDebugHomeView.js';
 import { ChatDebugOverviewView, OverviewNavigation } from './chatDebugOverviewView.js';
 import { ChatDebugLogsView, LogsNavigation } from './chatDebugLogsView.js';
 import { ChatDebugFlowChartView, FlowChartNavigation } from './chatDebugFlowChartView.js';
-import { ChatDebugCacheExplorerView, CacheExplorerNavigation } from './chatDebugCacheExplorerView.js';
 
 const $ = DOM.$;
 
@@ -45,7 +44,7 @@ type ChatDebugViewSwitchedEvent = {
 };
 
 type ChatDebugViewSwitchedClassification = {
-	viewState: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The view the user navigated to (home, overview, logs, flowchart, cache).' };
+	viewState: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The view the user navigated to (home, overview, logs, flowchart).' };
 	owner: 'vijayu';
 	comment: 'Tracks which views users navigate to in the Agent Debug Logs.';
 };
@@ -63,7 +62,6 @@ export class ChatDebugEditor extends EditorPane {
 	private overviewView: ChatDebugOverviewView | undefined;
 	private logsView: ChatDebugLogsView | undefined;
 	private flowChartView: ChatDebugFlowChartView | undefined;
-	private cacheExplorerView: ChatDebugCacheExplorerView | undefined;
 	private filterState: ChatDebugFilterState | undefined;
 
 	private readonly sessionModelListener = this._register(new MutableDisposable());
@@ -124,9 +122,6 @@ export class ChatDebugEditor extends EditorPane {
 				case OverviewNavigation.FlowChart:
 					this.showView(ViewState.FlowChart);
 					break;
-				case OverviewNavigation.CacheExplorer:
-					this.showView(ViewState.CacheExplorer);
-					break;
 			}
 		}));
 
@@ -156,19 +151,6 @@ export class ChatDebugEditor extends EditorPane {
 			}
 		}));
 
-		this.cacheExplorerView = this._register(this.instantiationService.createInstance(ChatDebugCacheExplorerView, this.container));
-		this._register(this.cacheExplorerView.onNavigate(nav => {
-			switch (nav) {
-				case CacheExplorerNavigation.Home:
-					this.endActiveSession();
-					this.showView(ViewState.Home);
-					break;
-				case CacheExplorerNavigation.Overview:
-					this.showView(ViewState.Overview);
-					break;
-			}
-		}));
-
 		// When new debug events arrive, refresh the active session view
 		this._register(this.chatDebugService.onDidAddEvent(event => {
 			if (this.viewState === ViewState.Home) {
@@ -178,8 +160,6 @@ export class ChatDebugEditor extends EditorPane {
 					this.overviewView?.refresh();
 				} else if (this.viewState === ViewState.FlowChart) {
 					this.flowChartView?.refresh();
-				} else if (this.viewState === ViewState.CacheExplorer) {
-					this.cacheExplorerView?.refresh();
 				}
 				// Note: Logs view is intentionally omitted here — it handles
 				// onDidAddEvent internally via loadEvents() → addEvent() →
@@ -202,11 +182,10 @@ export class ChatDebugEditor extends EditorPane {
 				if (e.kind === 'setCustomTitle') {
 					if (this.viewState === ViewState.Home) {
 						this.homeView?.render();
-					} else if (this.viewState === ViewState.Overview || this.viewState === ViewState.Logs || this.viewState === ViewState.FlowChart || this.viewState === ViewState.CacheExplorer) {
+					} else if (this.viewState === ViewState.Overview || this.viewState === ViewState.Logs || this.viewState === ViewState.FlowChart) {
 						this.overviewView?.updateBreadcrumb();
 						this.logsView?.updateBreadcrumb();
 						this.flowChartView?.updateBreadcrumb();
-						this.cacheExplorerView?.updateBreadcrumb();
 					}
 				}
 			}));
@@ -258,15 +237,9 @@ export class ChatDebugEditor extends EditorPane {
 			this.flowChartView?.hide();
 		}
 
-		if (state === ViewState.CacheExplorer) {
-			this.cacheExplorerView?.show();
-		} else {
-			this.cacheExplorerView?.hide();
-		}
-
 	}
 
-	navigateToSession(sessionResource: URI, view?: 'logs' | 'overview' | 'flowchart' | 'cache'): void {
+	navigateToSession(sessionResource: URI, view?: 'logs' | 'overview' | 'flowchart'): void {
 		// End the previous session's streaming pipeline before switching
 		const previousSessionResource = this.chatDebugService.activeSessionResource;
 		if (previousSessionResource && previousSessionResource.toString() !== sessionResource.toString()) {
@@ -282,13 +255,8 @@ export class ChatDebugEditor extends EditorPane {
 		this.overviewView?.setSession(sessionResource);
 		this.logsView?.setSession(sessionResource);
 		this.flowChartView?.setSession(sessionResource);
-		this.cacheExplorerView?.setSession(sessionResource);
 
-		const targetState = view === 'logs' ? ViewState.Logs
-			: view === 'flowchart' ? ViewState.FlowChart
-				: view === 'cache' ? ViewState.CacheExplorer
-					: ViewState.Overview;
-		this.showView(targetState);
+		this.showView(view === 'logs' ? ViewState.Logs : view === 'flowchart' ? ViewState.FlowChart : ViewState.Overview);
 	}
 
 	private trackSessionModelChanges(sessionResource: URI): void {
@@ -363,8 +331,6 @@ export class ChatDebugEditor extends EditorPane {
 			this.navigateToSession(sessionResource, 'logs');
 		} else if (viewHint === 'flowchart' && sessionResource) {
 			this.navigateToSession(sessionResource, 'flowchart');
-		} else if (viewHint === 'cache' && sessionResource) {
-			this.navigateToSession(sessionResource, 'cache');
 		} else if (viewHint === 'overview' && sessionResource) {
 			this.navigateToSession(sessionResource, 'overview');
 		} else if (viewHint === 'home') {

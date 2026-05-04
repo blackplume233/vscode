@@ -26,11 +26,9 @@ import { getOutputViewModelFromId } from '../../../notebook/browser/controller/c
 import { getNotebookEditorFromEditorPane } from '../../../notebook/browser/notebookBrowser.js';
 import { SCMHistoryItemTransferData } from '../../../scm/browser/scmHistoryChatContext.js';
 import { CHAT_ATTACHABLE_IMAGE_MIME_TYPES, getAttachableImageExtension } from '../../common/model/chatModel.js';
-import { IBrowserViewVariableEntry, IChatRequestVariableEntry, OmittedState, IDiagnosticVariableEntry, IDiagnosticVariableEntryFilterData, ISymbolVariableEntry, ISCMHistoryItemVariableEntry } from '../../common/attachments/chatVariableEntries.js';
+import { IChatRequestVariableEntry, OmittedState, IDiagnosticVariableEntry, IDiagnosticVariableEntryFilterData, ISymbolVariableEntry, ISCMHistoryItemVariableEntry } from '../../common/attachments/chatVariableEntries.js';
 import { imageToHash } from '../widget/input/editor/chatPasteProviders.js';
 import { resizeImage } from '../chatImageUtils.js';
-import { BrowserViewUri } from '../../../../../platform/browserView/common/browserViewUri.js';
-import { BrowserViewSharingState, IBrowserViewWorkbenchService } from '../../../browserView/common/browserView.js';
 
 export const IChatAttachmentResolveService = createDecorator<IChatAttachmentResolveService>('IChatAttachmentResolveService');
 
@@ -40,7 +38,6 @@ export interface IChatAttachmentResolveService {
 	resolveEditorAttachContext(editor: EditorInput | IDraggedResourceEditorInput): Promise<IChatRequestVariableEntry | undefined>;
 	resolveUntitledEditorAttachContext(editor: IDraggedResourceEditorInput): Promise<IChatRequestVariableEntry | undefined>;
 	resolveResourceAttachContext(resource: URI, isDirectory: boolean): Promise<IChatRequestVariableEntry | undefined>;
-	resolveBrowserViewAttachContext(browserId: string): Promise<IBrowserViewVariableEntry | undefined>;
 
 	resolveImageEditorAttachContext(resource: URI, data?: VSBuffer, mimeType?: string): Promise<IChatRequestVariableEntry | undefined>;
 	resolveImageAttachContext(images: ImageTransferData[]): Promise<IChatRequestVariableEntry[]>;
@@ -58,8 +55,7 @@ export class ChatAttachmentResolveService implements IChatAttachmentResolveServi
 		@IFileService private fileService: IFileService,
 		@IEditorService private editorService: IEditorService,
 		@IExtensionService private extensionService: IExtensionService,
-		@IDialogService private dialogService: IDialogService,
-		@IBrowserViewWorkbenchService private browserViewService: IBrowserViewWorkbenchService,
+		@IDialogService private dialogService: IDialogService
 	) { }
 
 	// --- EDITORS ---
@@ -72,11 +68,6 @@ export class ChatAttachmentResolveService implements IChatAttachmentResolveServi
 
 		if (!editor.resource) {
 			return undefined;
-		}
-
-		const browser = BrowserViewUri.parse(editor.resource);
-		if (browser) {
-			return await this.resolveBrowserViewAttachContext(browser.id);
 		}
 
 		let stat;
@@ -132,39 +123,6 @@ export class ChatAttachmentResolveService implements IChatAttachmentResolveServi
 			id: resource.toString(),
 			name: basename(resource),
 			omittedState
-		};
-	}
-
-	public async resolveBrowserViewAttachContext(browserId: string): Promise<IBrowserViewVariableEntry | undefined> {
-		const views = this.browserViewService.getKnownBrowserViews();
-		const editor = views.get(browserId);
-		if (!editor) {
-			return undefined;
-		}
-
-		// Ensure the model is resolved so we can prompt for sharing
-		if (!editor.model) {
-			await editor.resolve();
-		}
-		const model = editor.model;
-		if (!model) {
-			return undefined;
-		}
-
-		// Prompt user to share the page with the agent if not already shared
-		if (model.sharingState === BrowserViewSharingState.NotShared) {
-			if (!(await model.setSharedWithAgent(true))) {
-				return undefined; // User denied sharing
-			}
-		}
-
-		return {
-			kind: 'browserView',
-			id: editor.resource.toString(),
-			name: editor.getName(),
-			value: editor.resource,
-			browserId: editor.id,
-			modelDescription: `Browser page: ${editor.getTitle()}. The pageId is "${editor.id}".`
 		};
 	}
 

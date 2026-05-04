@@ -136,7 +136,11 @@ export function hygiene(some: NodeJS.ReadWriteStream | string[] | undefined, run
 	const formatting = es.map(function (file: any, cb) {
 		try {
 			const rawInput = file.contents!.toString('utf8');
-			if (!formatter.verifyFormatting(file.path, rawInput)) {
+			const rawOutput = formatter.format(file.path, rawInput);
+
+			const original = rawInput.replace(/\r\n/gm, '\n');
+			const formatted = rawOutput.replace(/\r\n/gm, '\n');
+			if (original !== formatted) {
 				console.error(
 					`File not formatted. Run the 'Format Document' command to fix it:`,
 					file.relative
@@ -253,7 +257,7 @@ function createGitIndexVinyls(paths: string[]): Promise<VinylFile[]> {
 
 				cp.exec(
 					process.platform === 'win32' ? `git show :${relativePath}` : `git show ':${relativePath}'`,
-					{ maxBuffer: Math.max(stat.size * 2, 1024 * 1024), encoding: 'buffer' },
+					{ maxBuffer: stat.size, encoding: 'buffer' },
 					(err, out) => {
 						if (err) {
 							return e(err);
@@ -306,6 +310,20 @@ if (import.meta.main) {
 						const copilotError = checkCopilotEnginesVersion(process.cwd());
 						if (copilotError) {
 							console.error(copilotError);
+							process.exit(1);
+						}
+					}
+
+					// Run copilot pre-commit checks if copilot files are staged
+					if (some.some(f => f.startsWith('extensions/copilot/'))) {
+						console.log('Running copilot pre-commit checks...');
+						const result = cp.spawnSync('npx', ['lint-staged'], {
+							cwd: path.join(process.cwd(), 'extensions', 'copilot'),
+							stdio: 'inherit',
+							shell: true,
+						});
+						if (result.status !== 0) {
+							console.error('Copilot pre-commit checks failed.');
 							process.exit(1);
 						}
 					}

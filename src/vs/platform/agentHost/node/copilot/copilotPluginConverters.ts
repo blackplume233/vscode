@@ -12,12 +12,6 @@ import type { IMcpServerDefinition, INamedPluginResource, IParsedHookCommand, IP
 import { dirname } from '../../../../base/common/path.js';
 
 type SessionHooks = NonNullable<SessionConfig['hooks']>;
-type PreToolUseHookInput = Parameters<NonNullable<SessionHooks['onPreToolUse']>>[0];
-type PostToolUseHookInput = Parameters<NonNullable<SessionHooks['onPostToolUse']>>[0];
-type UserPromptSubmittedHookInput = Parameters<NonNullable<SessionHooks['onUserPromptSubmitted']>>[0];
-type SessionStartHookInput = Parameters<NonNullable<SessionHooks['onSessionStart']>>[0];
-type SessionEndHookInput = Parameters<NonNullable<SessionHooks['onSessionEnd']>>[0];
-type ErrorOccurredHookInput = Parameters<NonNullable<SessionHooks['onErrorOccurred']>>[0];
 
 // ---------------------------------------------------------------------------
 // MCP servers
@@ -232,8 +226,8 @@ const HOOK_TYPE_TO_SDK_KEY: Record<string, keyof SessionHooks> = {
 export function toSdkHooks(
 	hookGroups: readonly IParsedHookGroup[],
 	editTrackingHooks?: {
-		readonly onPreToolUse: (input: PreToolUseHookInput) => Promise<void>;
-		readonly onPostToolUse: (input: PostToolUseHookInput) => Promise<void>;
+		readonly onPreToolUse: (input: { toolName: string; toolArgs: unknown }) => Promise<void>;
+		readonly onPostToolUse: (input: { toolName: string; toolArgs: unknown }) => Promise<void>;
 	},
 ): SessionHooks {
 	// Group all commands by SDK handler key
@@ -253,7 +247,7 @@ export function toSdkHooks(
 	// Pre-tool-use handler
 	const preToolCommands = commandsByKey.get('onPreToolUse');
 	if (preToolCommands?.length || editTrackingHooks) {
-		hooks.onPreToolUse = async (input: PreToolUseHookInput) => {
+		hooks.onPreToolUse = async (input: { toolName: string; toolArgs: unknown }) => {
 			await editTrackingHooks?.onPreToolUse(input);
 			return runHookCommands(preToolCommands, input);
 		};
@@ -262,7 +256,7 @@ export function toSdkHooks(
 	// Post-tool-use handler
 	const postToolCommands = commandsByKey.get('onPostToolUse');
 	if (postToolCommands?.length || editTrackingHooks) {
-		hooks.onPostToolUse = async (input: PostToolUseHookInput) => {
+		hooks.onPostToolUse = async (input: { toolName: string; toolArgs: unknown }) => {
 			await editTrackingHooks?.onPostToolUse(input);
 			return runHookCommands(postToolCommands, input);
 		};
@@ -271,7 +265,7 @@ export function toSdkHooks(
 	// User-prompt-submitted handler
 	const promptCommands = commandsByKey.get('onUserPromptSubmitted');
 	if (promptCommands?.length) {
-		hooks.onUserPromptSubmitted = async (input: UserPromptSubmittedHookInput) => {
+		hooks.onUserPromptSubmitted = async (input: { prompt: string }) => {
 			const stdin = JSON.stringify(input);
 			for (const cmd of promptCommands) {
 				try {
@@ -286,7 +280,7 @@ export function toSdkHooks(
 	// Session-start handler
 	const startCommands = commandsByKey.get('onSessionStart');
 	if (startCommands?.length) {
-		hooks.onSessionStart = async (input: SessionStartHookInput) => {
+		hooks.onSessionStart = async (input: { source: string }) => {
 			const stdin = JSON.stringify(input);
 			for (const cmd of startCommands) {
 				try {
@@ -301,7 +295,7 @@ export function toSdkHooks(
 	// Session-end handler
 	const endCommands = commandsByKey.get('onSessionEnd');
 	if (endCommands?.length) {
-		hooks.onSessionEnd = async (input: SessionEndHookInput) => {
+		hooks.onSessionEnd = async (input: { reason: string }) => {
 			const stdin = JSON.stringify(input);
 			for (const cmd of endCommands) {
 				try {
@@ -316,7 +310,7 @@ export function toSdkHooks(
 	// Error-occurred handler
 	const errorCommands = commandsByKey.get('onErrorOccurred');
 	if (errorCommands?.length) {
-		hooks.onErrorOccurred = async (input: ErrorOccurredHookInput) => {
+		hooks.onErrorOccurred = async (input: { error: string }) => {
 			const stdin = JSON.stringify(input);
 			for (const cmd of errorCommands) {
 				try {

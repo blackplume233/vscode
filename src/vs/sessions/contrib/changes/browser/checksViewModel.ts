@@ -26,7 +26,7 @@ export class ChecksViewModel extends Disposable {
 			return session?.resource;
 		});
 
-		const pullRequestInfoObs = derivedOpts<{ owner: string; repo: string; prNumber: number; headSha: string } | undefined>({
+		const pullRequestInfoObs = derivedOpts<{ owner: string; repo: string; headRef: string } | undefined>({
 			equalsFn: structuralEquals
 		}, reader => {
 			const session = sessionManagementService.activeSession.read(reader);
@@ -48,8 +48,7 @@ export class ChecksViewModel extends Disposable {
 			return {
 				owner: gitHubInfo.owner,
 				repo: gitHubInfo.repo,
-				prNumber: gitHubInfo.pullRequest.number,
-				headSha: pr.headSha
+				headRef: pr.headSha
 			};
 		});
 
@@ -62,9 +61,10 @@ export class ChecksViewModel extends Disposable {
 			// Use the PR's headSha (commit SHA) rather than the branch
 			// name so CI checks can still be fetched after branch deletion
 			// (e.g. after the PR is merged).
-			const ciModel = gitHubService.getPullRequestCI(pullRequestInfo.owner, pullRequestInfo.repo, pullRequestInfo.prNumber, pullRequestInfo.headSha);
+			const ciModel = gitHubService.getPullRequestCI(pullRequestInfo.owner, pullRequestInfo.repo, pullRequestInfo.headRef);
 			ciModel.refresh();
-			reader.store.add(ciModel.startPolling());
+			ciModel.startPolling();
+			reader.store.add({ dispose: () => ciModel.stopPolling() });
 
 			return ciModel;
 		});

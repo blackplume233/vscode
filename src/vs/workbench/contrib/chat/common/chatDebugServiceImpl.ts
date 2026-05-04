@@ -12,8 +12,7 @@ import { ResourceMap } from '../../../../base/common/map.js';
 import { extUri } from '../../../../base/common/resources.js';
 import { URI } from '../../../../base/common/uri.js';
 import { ChatDebugLogLevel, IChatDebugEvent, IChatDebugLogProvider, IChatDebugResolvedEventContent, IChatDebugService } from './chatDebugService.js';
-import { localChatSessionType } from './chatSessionsService.js';
-import { getChatSessionType } from './model/chatUri.js';
+import { LocalChatSessionUri } from './model/chatUri.js';
 
 /**
  * Per-session circular buffer for debug events.
@@ -138,15 +137,15 @@ export class ChatDebugServiceImpl extends Disposable implements IChatDebugServic
 		generic: 5,
 	};
 
-	/** Session types eligible for debug logging and provider invocation. */
-	private static readonly _debugEligibleSessionTypes = new Set([
-		localChatSessionType,			// local sessions
+	/** Schemes eligible for debug logging and provider invocation. */
+	private static readonly _debugEligibleSchemes = new Set([
+		LocalChatSessionUri.scheme,	// vscode-chat-session (local sessions)
 		'copilotcli',				// Copilot CLI background sessions
 		'claude-code',				// Claude Code CLI sessions
 	]);
 
 	private _isDebugEligibleSession(sessionResource: URI): boolean {
-		return ChatDebugServiceImpl._debugEligibleSessionTypes.has(getChatSessionType(sessionResource))
+		return ChatDebugServiceImpl._debugEligibleSchemes.has(sessionResource.scheme)
 			|| this._importedSessions.has(sessionResource);
 	}
 

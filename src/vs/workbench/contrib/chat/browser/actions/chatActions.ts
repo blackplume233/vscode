@@ -50,7 +50,7 @@ import { IChatAgentResult, IChatAgentService } from '../../common/participants/c
 import { ChatContextKeys } from '../../common/actions/chatContextKeys.js';
 import { ModifiedFileEntryState } from '../../common/editing/chatEditingService.js';
 import { IChatModel, IChatResponseModel } from '../../common/model/chatModel.js';
-import { ChatMode, IChatMode } from '../../common/chatModes.js';
+import { ChatMode, IChatMode, IChatModeService } from '../../common/chatModes.js';
 import { ElicitationState, IChatService, IChatToolInvocation } from '../../common/chatService/chatService.js';
 import { ISCMHistoryItemChangeRangeVariableEntry, ISCMHistoryItemChangeVariableEntry } from '../../common/attachments/chatVariableEntries.js';
 import { IChatRequestViewModel, IChatResponseViewModel, isRequestVM } from '../../common/model/chatViewModel.js';
@@ -220,6 +220,7 @@ abstract class OpenChatGlobalAction extends Action2 {
 		const chatAgentService = accessor.get(IChatAgentService);
 		const instaService = accessor.get(IInstantiationService);
 		const commandService = accessor.get(ICommandService);
+		const chatModeService = accessor.get(IChatModeService);
 		const fileService = accessor.get(IFileService);
 		const languageModelService = accessor.get(ILanguageModelsService);
 		const scmService = accessor.get(ISCMService);
@@ -237,7 +238,7 @@ abstract class OpenChatGlobalAction extends Action2 {
 			return;
 		}
 
-		const switchToMode = opts?.mode ? chatWidget.input.currentChatModesObs.get().findModeByName(opts.mode) : this.mode;
+		const switchToMode = (opts?.mode ? chatModeService.findModeByName(opts?.mode) : undefined) ?? this.mode;
 		if (switchToMode) {
 			await this.handleSwitchToMode(switchToMode, chatWidget, instaService, commandService);
 		}
@@ -1113,7 +1114,7 @@ export function registerChatActions() {
 		constructor() {
 			super({
 				id: 'workbench.action.chat.manageSettings',
-				title: localize2('manageChat', "Manage Copilot Settings"),
+				title: localize2('manageChat', "Manage Chat"),
 				category: CHAT_CATEGORY,
 				f1: true,
 				precondition: ContextKeyExpr.and(
@@ -1121,8 +1122,7 @@ export function registerChatActions() {
 						ChatContextKeys.Entitlement.planFree,
 						ChatContextKeys.Entitlement.planEdu,
 						ChatContextKeys.Entitlement.planPro,
-						ChatContextKeys.Entitlement.planProPlus,
-						ChatContextKeys.Entitlement.planMax
+						ChatContextKeys.Entitlement.planProPlus
 					),
 					nonEnterpriseCopilotUsers
 				),

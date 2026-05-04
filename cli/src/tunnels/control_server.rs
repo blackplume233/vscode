@@ -28,6 +28,8 @@ use crate::util::sync::{new_barrier, Barrier, BarrierOpener};
 
 use futures::stream::FuturesUnordered;
 use futures::FutureExt;
+use opentelemetry::trace::SpanKind;
+use opentelemetry::KeyValue;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::process::Stdio;
@@ -38,6 +40,7 @@ use tokio_util::codec::Decoder;
 
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::time::Instant;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader, DuplexStream};
 use tokio::sync::{mpsc, Mutex};
 
@@ -279,8 +282,8 @@ pub async fn serve(
 						let mgr = mgr.clone();
 						async move { handle_agent_host_request(mgr, req).await }
 					});
-					if let Err(e) = hyper::server::conn::http1::Builder::new()
-						.serve_connection(hyper_util::rt::TokioIo::new(rw), svc)
+					if let Err(e) = hyper::server::conn::Http::new()
+						.serve_connection(rw, svc)
 						.with_upgrades()
 						.await
 					{
@@ -308,17 +311,33 @@ pub async fn serve(
 				let own_forwarding = forwarding.handle();
 
 				tokio::spawn(async move {
+					use opentelemetry::trace::{FutureExt, TraceContextExt};
+
+					let span = own_log.span("server.socket").with_kind(SpanKind::Consumer).start(own_log.tracer());
+					let cx = opentelemetry::Context::current_with_span(span);
+					let serve_at = Instant::now();
+
 					debug!(own_log, "Serving new connection");
 
 					let (writehalf, readhalf) = socket.into_split();
-					let _stats = process_socket(readhalf, writehalf, own_tx, Some(own_forwarding), ServeStreamParams {
+					let stats = process_socket(readhalf, writehalf, own_tx, Some(own_forwarding), ServeStreamParams {
 						log: own_log,
 						launcher_paths: own_paths,
 						code_server_args: own_code_server_args,
 						platform,
 						exit_barrier: own_exit,
 						requires_auth: AuthRequired::None,
-					}).await;
+					}).with_context(cx.clone()).await;
+
+					cx.span().add_event(
+						"socket.bandwidth",
+						vec![
+							KeyValue::new("tx", stats.tx as f64),
+							KeyValue::new("rx", stats.rx as f64),
+							KeyValue::new("duration_ms", serve_at.elapsed().as_millis() as f64),
+						],
+					);
+					cx.span().end();
 				});
 			}
 		}
@@ -356,8 +375,8 @@ pub async fn serve_stream(
 }
 
 pub struct SocketStats {
-	pub rx: usize,
-	pub tx: usize,
+	rx: usize,
+	tx: usize,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -772,7 +791,7 @@ async fn handle_serve(
 	// fill params.extensions into code_server_args.install_extensions
 	let mut csa = c.code_server_args.clone();
 	csa.connection_token = params.connection_token.or(csa.connection_token);
-	csa.install_extensions.extend(params.extensions);
+	csa.install_extensions.extend(params.extensions.into_iter());
 
 	let params_raw = ServerParamsRaw {
 		commit_id: params.commit_id,
@@ -1171,9 +1190,7 @@ async fn handle_call_server_http(
 	code_server: Option<SocketCodeServer>,
 	params: CallServerHttpParams,
 ) -> Result<CallServerHttpResult, AnyError> {
-	use ::http::Request;
-	use http_body_util::{BodyExt, Full};
-	use hyper_util::rt::TokioIo;
+	use hyper::{body, client::conn::Builder, Body, Request};
 
 	// We use Hyper directly here since reqwest doesn't support sockets/pipes.
 	// See https://github.com/seanmonstar/reqwest/issues/39
@@ -1185,7 +1202,8 @@ async fn handle_call_server_http(
 
 	let rw = get_socket_rw_stream(socket).await?;
 
-	let (mut request_sender, connection) = hyper::client::conn::http1::handshake(TokioIo::new(rw))
+	let (mut request_sender, connection) = Builder::new()
+		.handshake(rw)
 		.await
 		.map_err(|e| wrap(e, "error establishing connection"))?;
 
@@ -1201,9 +1219,7 @@ async fn handle_call_server_http(
 		request_builder = request_builder.header(k, v);
 	}
 	let request = request_builder
-		.body(Full::new(bytes::Bytes::from(
-			params.body.unwrap_or_default(),
-		)))
+		.body(Body::from(params.body.unwrap_or_default()))
 		.map_err(|e| wrap(e, "invalid request"))?;
 
 	let response = request_sender
@@ -1211,21 +1227,17 @@ async fn handle_call_server_http(
 		.await
 		.map_err(|e| wrap(e, "error sending request"))?;
 
-	let (parts, body) = response.into_parts();
-	let body_bytes = body
-		.collect()
-		.await
-		.map_err(|e| wrap(e, "error reading response body"))?
-		.to_bytes();
-
 	Ok(CallServerHttpResult {
-		status: parts.status.as_u16(),
-		headers: parts
-			.headers
-			.iter()
+		status: response.status().as_u16(),
+		headers: response
+			.headers()
+			.into_iter()
 			.map(|(k, v)| (k.to_string(), v.to_str().unwrap_or("").to_string()))
 			.collect(),
-		body: body_bytes.to_vec(),
+		body: body::to_bytes(response)
+			.await
+			.map_err(|e| wrap(e, "error reading response body"))?
+			.to_vec(),
 	})
 }
 

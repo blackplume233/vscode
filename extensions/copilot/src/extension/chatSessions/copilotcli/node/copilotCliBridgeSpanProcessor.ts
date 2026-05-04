@@ -3,8 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { CopilotChatAttr, CopilotCliSdkAttr, GenAiAttr, GenAiOperationName } from '../../../../platform/otel/common/genAiAttributes';
-import { type ICompletedSpanData, type IOTelService, type ISpanEventRecord, SpanStatusCode } from '../../../../platform/otel/common/otelService';
+import { CopilotChatAttr, GenAiAttr, GenAiOperationName } from '../../../../platform/otel/common/genAiAttributes';
+import type { ICompletedSpanData, IOTelService, ISpanEventRecord, SpanStatusCode } from '../../../../platform/otel/common/otelService';
 
 /**
  * Hook event data stashed by copilotcliSession for bridge enrichment.
@@ -160,8 +160,8 @@ export class CopilotCliBridgeSpanProcessor implements SpanProcessor {
 
 		// SDK native hook spans: enrich with data from session events and
 		// remap to execute_hook so the debug panel shows full details.
-		const invocationId = span.attributes[CopilotCliSdkAttr.HOOK_INVOCATION_ID];
-		if (span.name.startsWith('hook ') && span.attributes[CopilotCliSdkAttr.HOOK_TYPE] && typeof invocationId === 'string') {
+		const invocationId = span.attributes['github.copilot.hook.invocation_id'];
+		if (span.name.startsWith('hook ') && span.attributes['github.copilot.hook.type'] && typeof invocationId === 'string') {
 			const hookEndData = this._hookData.get(invocationId);
 			if (hookEndData?.resultKind) {
 				// hook.end data already arrived — enrich and inject immediately
@@ -186,15 +186,15 @@ export class CopilotCliBridgeSpanProcessor implements SpanProcessor {
 
 		const attrs = { ...span.attributes };
 		attrs[GenAiAttr.OPERATION_NAME] = GenAiOperationName.EXECUTE_HOOK;
-		attrs[CopilotChatAttr.HOOK_TYPE] = data.hookType;
+		attrs['copilot_chat.hook_type'] = data.hookType;
 		if (data.input) {
-			attrs[CopilotChatAttr.HOOK_INPUT] = data.input;
+			attrs['copilot_chat.hook_input'] = data.input;
 		}
 		if (data.output) {
-			attrs[CopilotChatAttr.HOOK_OUTPUT] = data.output;
+			attrs['copilot_chat.hook_output'] = data.output;
 		}
 		if (data.resultKind) {
-			attrs[CopilotChatAttr.HOOK_RESULT_KIND] = data.resultKind;
+			attrs['copilot_chat.hook_result_kind'] = data.resultKind;
 		}
 
 		const enrichedSpan: ICompletedSpanData = {
@@ -202,8 +202,8 @@ export class CopilotCliBridgeSpanProcessor implements SpanProcessor {
 			name: `execute_hook ${data.hookType}`,
 			attributes: attrs,
 			status: data.resultKind === 'error'
-				? { code: SpanStatusCode.ERROR, message: data.errorMessage }
-				: { code: SpanStatusCode.OK },
+				? { code: 2 as SpanStatusCode, message: data.errorMessage }
+				: { code: 1 as SpanStatusCode },
 		};
 		this._otelService.injectCompletedSpan(enrichedSpan);
 	}

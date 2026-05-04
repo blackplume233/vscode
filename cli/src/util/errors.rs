@@ -451,8 +451,6 @@ pub enum CodeError {
 	SingletonLockedProcessExited(u32),
 	#[error("no tunnel process is currently running")]
 	NoRunningTunnel,
-	#[error("no agent host process is currently running")]
-	NoRunningAgentHost,
 	#[error("rpc call failed: {0:?}")]
 	TunnelRpcCallFailed(ResponseError),
 	#[cfg(windows)]
@@ -495,7 +493,7 @@ pub enum CodeError {
 	#[error("could not parse `host`: {0}")]
 	InvalidHostAddress(std::net::AddrParseError),
 	#[error("could not start server on the given host/port: {0}")]
-	CouldNotListenOnInterface(std::io::Error),
+	CouldNotListenOnInterface(hyper::Error),
 	#[error(
 		"Run this command again with --accept-server-license-terms to indicate your agreement."
 	)]

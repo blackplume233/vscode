@@ -54,9 +54,6 @@ const _allApiProposals = {
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.chatHooks.d.ts',
 		version: 6
 	},
-	chatInputNotification: {
-		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.chatInputNotification.d.ts',
-	},
 	chatOutputRenderer: {
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.chatOutputRenderer.d.ts',
 	},
@@ -74,7 +71,7 @@ const _allApiProposals = {
 	},
 	chatProvider: {
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.chatProvider.d.ts',
-		version: 5
+		version: 4
 	},
 	chatReferenceBinaryData: {
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.chatReferenceBinaryData.d.ts',
@@ -294,9 +291,6 @@ const _allApiProposals = {
 	},
 	languageModelCapabilities: {
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.languageModelCapabilities.d.ts',
-	},
-	languageModelPricing: {
-		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.languageModelPricing.d.ts',
 	},
 	languageModelProxy: {
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.languageModelProxy.d.ts',

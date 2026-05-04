@@ -5,7 +5,6 @@
 
 import { EffortLevel, PermissionMode } from '@anthropic-ai/claude-agent-sdk';
 import { CapturingToken } from '../../../../platform/requestLogger/common/capturingToken';
-import type { TraceContext } from '../../../../platform/otel/common/otelService';
 import { arrayEquals } from '../../../../util/vs/base/common/equals';
 import { Emitter } from '../../../../util/vs/base/common/event';
 import { Disposable } from '../../../../util/vs/base/common/lifecycle';
@@ -47,7 +46,6 @@ export class ClaudeSessionStateService extends Disposable implements IClaudeSess
 			folderInfo: existing?.folderInfo,
 			usageHandler: existing?.usageHandler,
 			reasoningEffort: existing?.reasoningEffort,
-			traceContext: existing?.traceContext,
 		});
 		this._onDidChangeSessionState.fire({ sessionId, modelId });
 	}
@@ -68,7 +66,6 @@ export class ClaudeSessionStateService extends Disposable implements IClaudeSess
 			folderInfo: existing?.folderInfo,
 			usageHandler: existing?.usageHandler,
 			reasoningEffort: existing?.reasoningEffort,
-			traceContext: existing?.traceContext,
 		});
 		this._onDidChangeSessionState.fire({ sessionId, permissionMode: mode });
 	}
@@ -86,7 +83,6 @@ export class ClaudeSessionStateService extends Disposable implements IClaudeSess
 			folderInfo: existing?.folderInfo,
 			usageHandler: existing?.usageHandler,
 			reasoningEffort: existing?.reasoningEffort,
-			traceContext: existing?.traceContext,
 		});
 	}
 
@@ -106,7 +102,6 @@ export class ClaudeSessionStateService extends Disposable implements IClaudeSess
 			folderInfo,
 			usageHandler: existing?.usageHandler,
 			reasoningEffort: existing?.reasoningEffort,
-			traceContext: existing?.traceContext,
 		});
 		this._onDidChangeSessionState.fire({ sessionId, folderInfo });
 	}
@@ -124,7 +119,6 @@ export class ClaudeSessionStateService extends Disposable implements IClaudeSess
 			folderInfo: existing?.folderInfo,
 			usageHandler: handler,
 			reasoningEffort: existing?.reasoningEffort,
-			traceContext: existing?.traceContext,
 		});
 	}
 
@@ -144,24 +138,6 @@ export class ClaudeSessionStateService extends Disposable implements IClaudeSess
 			folderInfo: existing?.folderInfo,
 			usageHandler: existing?.usageHandler,
 			reasoningEffort: effort,
-			traceContext: existing?.traceContext,
-		});
-	}
-
-	getTraceContextForSession(sessionId: string): TraceContext | undefined {
-		return this._sessionState.get(sessionId)?.traceContext;
-	}
-
-	setTraceContextForSession(sessionId: string, traceContext: TraceContext | undefined): void {
-		const existing = this._sessionState.get(sessionId);
-		this._sessionState.set(sessionId, {
-			modelId: existing?.modelId,
-			permissionMode: existing?.permissionMode ?? 'acceptEdits',
-			capturingToken: existing?.capturingToken,
-			folderInfo: existing?.folderInfo,
-			usageHandler: existing?.usageHandler,
-			reasoningEffort: existing?.reasoningEffort,
-			traceContext,
 		});
 	}
 

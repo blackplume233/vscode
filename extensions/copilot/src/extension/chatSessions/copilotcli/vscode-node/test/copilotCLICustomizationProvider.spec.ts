@@ -65,7 +65,7 @@ function makeSkill(uri: URI, name: string): vscode.ChatSkill {
 
 /** Creates a ChatHook stub. */
 function makeHook(uri: URI): vscode.ChatHook {
-	return { uri, source: 'local' };
+	return { uri };
 }
 
 /** Creates a ChatPlugin stub. */

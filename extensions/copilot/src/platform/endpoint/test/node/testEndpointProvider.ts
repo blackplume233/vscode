@@ -3,6 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/* eslint-disable import/no-restricted-paths */
+
 import type { ChatRequest, LanguageModelChat } from 'vscode';
 import { CacheableRequest, SQLiteCache } from '../../../../../test/base/cache';
 import { TestingCacheSalts } from '../../../../../test/base/salts';

@@ -9,7 +9,6 @@ import { Range } from '../../../../../../editor/common/core/range.js';
 import { localize } from '../../../../../../nls.js';
 import { IMarkerData, MarkerSeverity, MarkerTag } from '../../../../../../platform/markers/common/markers.js';
 import { ChatMode, IChatMode, IChatModeService } from '../../chatModes.js';
-import { localChatSessionType } from '../../chatSessionsService.js';
 import { ChatModeKind } from '../../constants.js';
 import { ILanguageModelChatMetadata, ILanguageModelsService } from '../../languageModels.js';
 import { ILanguageModelToolsService, SpecedToolAliases } from '../../tools/languageModelToolsService.js';
@@ -173,8 +172,8 @@ export class PromptValidator {
 							const loc = this.labelService.getUriLabel(resolved);
 							report(toMarker(localize('promptValidator.fileNotFound', "File '{0}' not found at '{1}'.", ref.content, loc), ref.range, MarkerSeverity.Warning));
 						}
-					} catch (e) {
-						this.logger.warn(`Error checking existence of file reference '${ref.content}' resolved to '${resolved.toString()}' in prompt file '${promptAST.uri.toString()}': ${e.message}`);
+					} catch {
+						this.logger.warn(`Error checking existence of file reference '${ref.content}' resolved to '${resolved.toString()}' in prompt file '${promptAST.uri.toString()}'`);
 					}
 				})());
 			}
@@ -470,7 +469,7 @@ export class PromptValidator {
 	}
 
 	private validateAgentValue(value: IScalarValue, report: (markers: IMarkerData) => void): IChatMode | undefined {
-		const agents = this.chatModeService.getModes(localChatSessionType);
+		const agents = this.chatModeService.getModes();
 		const availableAgents = [];
 
 		// Check if agent exists in builtin or custom agents
@@ -853,7 +852,7 @@ export class PromptValidator {
 		}
 
 		// Collect available agent names
-		const agents = (await this.promptsService.getCustomAgents(CancellationToken.None)).filter(a => a.enabled);
+		const agents = await this.promptsService.getCustomAgents(CancellationToken.None);
 		const availableAgentNames = new Set<string>(agents.map(agent => agent.name));
 		availableAgentNames.add(ChatMode.Agent.name.get()); // include default agent
 

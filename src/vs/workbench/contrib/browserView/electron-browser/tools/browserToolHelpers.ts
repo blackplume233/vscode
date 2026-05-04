@@ -12,7 +12,7 @@ import { IAgentNetworkFilterService } from '../../../../../platform/networkFilte
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { IToolResult } from '../../../chat/common/tools/languageModelToolsService.js';
 import { BrowserEditorInput } from '../../common/browserEditorInput.js';
-import { BrowserViewSharingState, IBrowserViewWorkbenchService } from '../../common/browserView.js';
+import { IBrowserViewWorkbenchService } from '../../common/browserView.js';
 
 // eslint-disable-next-line local/code-import-patterns
 import type { Page } from 'playwright-core';
@@ -51,7 +51,7 @@ export function formatBrowserEditorList(editorService: IEditorService, editors: 
 
 		const title = blocked ? localize('browser.blockedByPolicy', "Blocked by network domain policy") : (editor.title || 'Untitled');
 		const displayUrl = blocked ? '' : ` (${url})`;
-		const hint = editor === activeEditor ? ' (active)' : visibleEditors.has(editor) ? ' (visible)' : ' (not visible)';
+		const hint = editor === activeEditor ? ' (active)' : visibleEditors.has(editor) ? ' (visible)' : '';
 		const id = options?.excludeIds ? '' : `[${editor.id}] `;
 
 		// By default, use numbers only if we're excluding IDs, so models don't get confused about which ID to use.
@@ -142,40 +142,49 @@ export function errorResult(message: string): IToolResult {
 }
 
 /**
- * Checks whether a browser editor with the same host (hostname + port) already exists.
+ * Checks whether a browser editor with the same host (hostname + port) already
+ * exists. When {@link playwrightService} is provided, only pages tracked by Playwright
+ * (i.e. shared with the agent) are considered.
  *
  * @returns All matching {@link BrowserEditorInput}s.
  */
-export function findExistingPagesByHost(
+async function findExistingPagesByHost(
 	browserViewService: IBrowserViewWorkbenchService,
+	playwrightService: IPlaywrightService | undefined,
 	url: string,
-	options?: {
-		includeBlank?: boolean;
-		sharingState?: BrowserViewSharingState;
-	}
-): BrowserEditorInput[] {
+): Promise<BrowserEditorInput[]> {
 	const parsed = URL.parse(url);
 	if (!parsed || (parsed.protocol !== 'file:' && !parsed.host)) {
 		return [];
 	}
+
+	const trackedIds = playwrightService
+		? new Set(await playwrightService.getTrackedPages())
+		: undefined;
 
 	const results: BrowserEditorInput[] = [];
 	for (const editor of browserViewService.getKnownBrowserViews().values()) {
 		if (!(editor instanceof BrowserEditorInput)) {
 			continue;
 		}
-		if (options?.sharingState && editor.model?.sharingState !== options.sharingState) {
+		if (trackedIds && !trackedIds.has(editor.id)) {
 			continue;
 		}
 		const editorUrl = URL.parse(editor.url || '');
 		if (
-			options?.includeBlank && (!editor.url || editor.url === 'about:blank') ||
+			!editor.url ||
 			editorUrl?.host === parsed.host ||
-			(parsed.protocol === 'file:' && editorUrl?.protocol === 'file:') ||
-			(editorUrl?.host && parsed.host && (
+			(parsed.protocol === 'file:' && editorUrl?.protocol === 'file:')
+		) {
+			results.push(editor);
+		}
+		// Check for subdomain matches
+		if (
+			editorUrl?.host && parsed.host &&
+			(
 				editorUrl.host.endsWith('.' + parsed.host) ||
 				parsed.host.endsWith('.' + editorUrl.host)
-			))
+			)
 		) {
 			results.push(editor);
 		}
@@ -189,9 +198,12 @@ export function findExistingPagesByHost(
  */
 export async function getExistingPagesResult(
 	editorService: IEditorService,
-	existing: BrowserEditorInput[],
+	browserViewService: IBrowserViewWorkbenchService,
+	playwrightService: IPlaywrightService | undefined,
+	url: string,
 	formatOptions?: FormatBrowserEditorLinesOptions
 ): Promise<IToolResult | undefined> {
+	const existing = await findExistingPagesByHost(browserViewService, playwrightService, url);
 	if (existing.length === 0) {
 		return undefined;
 	}

@@ -7,7 +7,6 @@ import { Codicon } from '../../../../../base/common/codicons.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { localize } from '../../../../../nls.js';
 import { registerIcon } from '../../../../../platform/theme/common/iconRegistry.js';
-import { type AICustomizationPromptsStorage, BUILTIN_STORAGE } from '../../common/aiCustomizationWorkspaceService.js';
 import { PromptsStorage } from '../../common/promptSyntax/service/promptsService.js';
 
 /**
@@ -83,13 +82,12 @@ export const mcpServerIcon = registerIcon('ai-customization-mcp-server', Codicon
 /**
  * Returns the icon for a given storage type.
  */
-export function storageToIcon(storage: AICustomizationPromptsStorage): ThemeIcon {
+export function storageToIcon(storage: PromptsStorage): ThemeIcon {
 	switch (storage) {
 		case PromptsStorage.local: return workspaceIcon;
 		case PromptsStorage.user: return userIcon;
 		case PromptsStorage.extension: return extensionIcon;
 		case PromptsStorage.plugin: return pluginIcon;
-		case BUILTIN_STORAGE: return builtinIcon;
 		default: return instructionsIcon;
 	}
 }

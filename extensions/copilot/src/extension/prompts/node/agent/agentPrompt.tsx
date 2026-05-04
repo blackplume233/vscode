@@ -49,7 +49,6 @@ import './allAgentPrompts';
 import { AlternateGPTPrompt, DefaultReminderInstructions, DefaultToolReferencesHint, ReminderInstructionsProps, ToolReferencesHintProps } from './defaultAgentInstructions';
 import { AgentPromptCustomizations, ReminderInstructionsConstructor, ToolReferencesHintConstructor } from './promptRegistry';
 import { SummarizedConversationHistory } from './summarizedConversationHistory';
-import { DeferredToolListReminder } from './toolSearchInstructions';
 
 export interface AgentPromptProps extends GenericBasePromptElementProps {
 	readonly endpoint: IChatEndpoint;
@@ -279,7 +278,6 @@ class GlobalAgentContext extends PromptElement<GlobalAgentContextProps> {
 			</Tag>
 			<UserPreferences flexGrow={7} priority={800} />
 			{this.props.isNewChat && <MemoryContextPrompt sessionResource={this.props.sessionResource} />}
-			<DeferredToolListReminder availableTools={this.props.availableTools} />
 			{this.props.enableCacheBreakpoints && <cacheBreakpoint type={CacheType} />}
 		</UserMessage>;
 	}

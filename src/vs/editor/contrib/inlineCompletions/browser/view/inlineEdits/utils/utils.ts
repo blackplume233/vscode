@@ -45,7 +45,7 @@ export function maxContentWidthInRange(editor: ObservableCodeEditor, range: Line
 	const lines = range.mapToLineArray(l => model.getLineContent(l));
 
 	if (maxContentWidth < 5 && lines.some(l => l.length > 0) && model.uri.scheme !== 'file') {
-		console.log('unexpected width');
+		console.error('unexpected width');
 	}
 	return maxContentWidth;
 }

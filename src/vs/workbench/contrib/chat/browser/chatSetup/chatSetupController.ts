@@ -38,6 +38,7 @@ const defaultChat = {
 	providerUriSetting: product.defaultChatAgent?.providerUriSetting ?? '',
 	completionsAdvancedSetting: product.defaultChatAgent?.completionsAdvancedSetting ?? '',
 };
+
 export interface IChatSetupControllerOptions {
 	readonly forceSignIn?: boolean;
 	readonly useSocialProvider?: string;
@@ -259,11 +260,6 @@ export class ChatSetupController extends Disposable {
 	}
 
 	private async doInstall(): Promise<void> {
-		if (this.productService.defaultChatAgent.skipExtensionInstall) {
-			this.logService.info('[chat setup] Skipping extension marketplace install: skipExtensionInstall is set in product config');
-			return;
-		}
-
 		await this.extensionsWorkbenchService.install(defaultChat.chatExtensionId, {
 			enable: true,
 			isApplicationScoped: true, 	// install into all profiles

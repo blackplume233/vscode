@@ -20,7 +20,6 @@ import { ISessionsProvidersChangeEvent, ISessionsProvidersService } from './sess
 import { ISendRequestOptions, ISessionChangeEvent, ISessionsProvider } from '../common/sessionsProvider.js';
 import { IChat, ISession, isWorkspaceAgentSessionType, SessionStatus, ISessionType } from '../common/session.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
-import { LOCAL_AGENT_HOST_PROVIDER_ID } from '../../../common/agentHostSessionsProvider.js';
 
 const ACTIVE_SESSION_STATES_KEY = 'agentSessions.activeSessionStates';
 
@@ -129,7 +128,7 @@ class SessionsManagementService extends Disposable implements ISessionsManagemen
 			this.setActiveSession(to);
 			this._onDidChangeSessions.fire({
 				added: [],
-				removed: from.sessionId === to.sessionId ? [] : [from],
+				removed: [from],
 				changed: [to],
 			});
 		}
@@ -163,7 +162,7 @@ class SessionsManagementService extends Disposable implements ISessionsManagemen
 		for (const provider of this.sessionsProvidersService.getProviders()) {
 			sessions.push(...provider.getSessions());
 		}
-		return deduplicateSessions(sessions);
+		return sessions;
 	}
 
 	getSession(resource: URI): ISession | undefined {
@@ -520,32 +519,3 @@ class SessionsManagementService extends Disposable implements ISessionsManagemen
 }
 
 registerSingleton(ISessionsManagementService, SessionsManagementService, InstantiationType.Delayed);
-
-/**
- * Removes duplicate sessions across providers. When multiple sessions share
- * the same {@link ISession.deduplicationKey}, the session from the local
- * agent host provider is preferred; otherwise the first occurrence wins.
- */
-export function deduplicateSessions(sessions: ISession[]): ISession[] {
-	const seen = new Map<string, ISession>();
-	for (const session of sessions) {
-		const key = session.deduplicationKey;
-		if (!key) {
-			continue;
-		}
-		const existing = seen.get(key);
-		if (!existing) {
-			seen.set(key, session);
-		} else if (existing.providerId !== LOCAL_AGENT_HOST_PROVIDER_ID && session.providerId === LOCAL_AGENT_HOST_PROVIDER_ID) {
-			seen.set(key, session);
-		}
-	}
-
-	return sessions.filter(s => {
-		const key = s.deduplicationKey;
-		if (!key) {
-			return true;
-		}
-		return seen.get(key) === s;
-	});
-}

@@ -17,8 +17,7 @@ import { OffsetRange } from '../../../util/vs/editor/common/core/ranges/offsetRa
 import { getEditDiffHistory } from './diffHistoryForPrompt';
 import { LintErrors } from './lintErrors';
 import { countTokensForLines, toUniquePath } from './promptCraftingUtils';
-import { AppendNeighborFileSnippetsResult, getRecentCodeSnippets } from './recentFilesForPrompt';
-import { INeighborFileSnippet } from './similarFilesContextService';
+import { getRecentCodeSnippets } from './recentFilesForPrompt';
 import { PromptTags } from './tags';
 import { CurrentDocument } from './xtabCurrentDocument';
 
@@ -36,7 +35,6 @@ export class PromptPieces {
 		public readonly lintErrors: LintErrors,
 		public readonly computeTokens: (s: string) => number,
 		public readonly opts: PromptOptions,
-		public readonly neighborSnippets?: readonly INeighborFileSnippet[],
 	) {
 	}
 }
@@ -45,15 +43,14 @@ export interface UserPromptResult {
 	readonly prompt: string;
 	readonly nDiffsInPrompt: number;
 	readonly diffTokensInPrompt: number;
-	readonly neighborSnippetsResult: AppendNeighborFileSnippetsResult | undefined;
 }
 
 export function getUserPrompt(promptPieces: PromptPieces): UserPromptResult {
 
-	const { activeDoc, xtabHistory, taggedCurrentDocLines, areaAroundCodeToEdit, langCtx, aggressivenessLevel, lintErrors, computeTokens, opts, neighborSnippets } = promptPieces;
+	const { activeDoc, xtabHistory, taggedCurrentDocLines, areaAroundCodeToEdit, langCtx, aggressivenessLevel, lintErrors, computeTokens, opts } = promptPieces;
 	const currentFileContent = taggedCurrentDocLines.join('\n');
 
-	const { codeSnippets: recentlyViewedCodeSnippets, documents: docsInPrompt, neighborSnippetsResult } = getRecentCodeSnippets(activeDoc, xtabHistory, langCtx, computeTokens, opts, neighborSnippets);
+	const { codeSnippets: recentlyViewedCodeSnippets, documents: docsInPrompt } = getRecentCodeSnippets(activeDoc, xtabHistory, langCtx, computeTokens, opts);
 
 	docsInPrompt.add(activeDoc.id); // Add active document to the set of documents in prompt
 
@@ -128,7 +125,7 @@ ${PromptTags.EDIT_HISTORY.end}`;
 
 	const trimmedPrompt = prompt.trim();
 
-	return { prompt: trimmedPrompt, nDiffsInPrompt, diffTokensInPrompt, neighborSnippetsResult };
+	return { prompt: trimmedPrompt, nDiffsInPrompt, diffTokensInPrompt };
 }
 
 function wrapInBackticks(content: string) {

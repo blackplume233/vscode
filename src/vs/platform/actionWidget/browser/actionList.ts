@@ -108,7 +108,7 @@ export interface IActionListItem<T> {
 	 * Optional callback invoked when the item is removed via the built-in remove button.
 	 * When set, a close button is automatically added to the item toolbar.
 	 */
-	readonly onRemove?: () => void | Promise<void>;
+	readonly onRemove?: () => void;
 }
 
 interface IActionMenuTemplateData {
@@ -197,7 +197,6 @@ class ActionItemRenderer<T> implements IListRenderer<IActionListItem<T>, IAction
 		private readonly _hasAnySubmenuActions: boolean,
 		private readonly _groupTitleByIndex: ReadonlyMap<number, string>,
 		private readonly _linkHandler: ((uri: URI, item: IActionListItem<T>) => void) | undefined,
-		private readonly _hideDefaultKeybindingTooltip: boolean,
 		@IKeybindingService private readonly _keybindingService: IKeybindingService,
 		@IOpenerService private readonly _openerService: IOpenerService,
 	) { }
@@ -351,8 +350,6 @@ class ActionItemRenderer<T> implements IListRenderer<IActionListItem<T>, IAction
 			data.container.title = element.tooltip;
 		} else if (element.disabled) {
 			data.container.title = element.label;
-		} else if (this._hideDefaultKeybindingTooltip) {
-			data.container.title = '';
 		} else if (actionTitle && previewTitle) {
 			if (this._supportsPreview && element.canPreview) {
 				data.container.title = localize({ key: 'label-preview', comment: ['placeholders are keybindings, e.g "F2 to Apply, Shift+F2 to Preview"'] }, "{0} to Apply, {1} to Preview", actionTitle, previewTitle);
@@ -371,8 +368,8 @@ class ActionItemRenderer<T> implements IListRenderer<IActionListItem<T>, IAction
 				id: 'actionList.remove',
 				label: localize('actionList.remove', "Remove"),
 				class: ThemeIcon.asClassName(Codicon.close),
-				run: async () => {
-					await element.onRemove!();
+				run: () => {
+					element.onRemove!();
 					this._onRemoveItem?.(element);
 				},
 			}));
@@ -457,12 +454,6 @@ export interface IActionListOptions {
 	readonly minWidth?: number;
 
 	/**
-	 * Maximum width for the action list. When set, items wider than this are
-	 * truncated rather than expanding the popup.
-	 */
-	readonly maxWidth?: number;
-
-	/**
 	 * Optional handler for markdown links activated in item descriptions or hovers.
 	 * When unset, links open via the opener service with command links allowed.
 	 */
@@ -485,6 +476,8 @@ export interface IActionListOptions {
 	 */
 	readonly showGroupTitleOnFirstItem?: boolean;
 
+
+
 	/**
 	 * When true and filtering is enabled, focuses the filter input when the list opens.
 	 */
@@ -495,13 +488,6 @@ export interface IActionListOptions {
 	 * Defaults to true for alignment consistency.
 	 */
 	readonly reserveSubmenuSpace?: boolean;
-
-	/**
-	 * When true, items without an explicit `tooltip` or `hover` do not get a
-	 * default "{keybinding} to Apply" tooltip. Useful for non-code-action lists
-	 * where this hint is misleading.
-	 */
-	readonly hideDefaultKeybindingTooltip?: boolean;
 }
 
 /**
@@ -602,7 +588,7 @@ export class ActionListWidget<T> extends Disposable {
 		const hasAnySubmenuActions = reserveSubmenuSpace && items.some(item => !!item.submenuActions?.length && !item.hover?.content);
 
 		this._list = this._register(new List(user, this.domNode, virtualDelegate, [
-			new ActionItemRenderer<T>(preview, (item) => this._removeItem(item), (item) => this._showSubmenuForItem(item), hasAnySubmenuActions, this._groupTitleByIndex, this._options?.linkHandler, this._options?.hideDefaultKeybindingTooltip ?? false, this._keybindingService, this._openerService),
+			new ActionItemRenderer<T>(preview, (item) => this._removeItem(item), (item) => this._showSubmenuForItem(item), hasAnySubmenuActions, this._groupTitleByIndex, this._options?.linkHandler, this._keybindingService, this._openerService),
 			new HeaderRenderer(),
 			new SeparatorRenderer(),
 		], {
@@ -902,10 +888,6 @@ export class ActionListWidget<T> extends Disposable {
 		this._focusCheckedOrFirst();
 	}
 
-	clearFocus(): void {
-		this._list.setFocus([]);
-	}
-
 	getFocusedElement(): IActionListItem<T> | undefined {
 		const focused = this._list.getFocus();
 		if (focused.length > 0) {
@@ -1028,14 +1010,11 @@ export class ActionListWidget<T> extends Disposable {
 	computeMaxWidth(minWidth: number): number {
 		const visibleCount = this._list.length;
 		const effectiveMinWidth = Math.max(minWidth, this._options?.minWidth ?? 0);
-		const rawMaxWidthCap = this._options?.maxWidth ?? Number.POSITIVE_INFINITY;
-		const maxWidthCap = Math.max(rawMaxWidthCap, effectiveMinWidth);
-		const clamp = (w: number) => Math.min(Math.max(w, effectiveMinWidth), maxWidthCap);
 		let maxWidth = effectiveMinWidth;
 
 		const totalItemCount = this._allMenuItems.length;
 		if (totalItemCount >= 50) {
-			return clamp(380);
+			return Math.max(380, effectiveMinWidth);
 		}
 
 		if (totalItemCount > visibleCount) {
@@ -1065,7 +1044,7 @@ export class ActionListWidget<T> extends Disposable {
 				}
 			}
 
-			maxWidth = clamp(Math.max(...itemWidths));
+			maxWidth = Math.max(...itemWidths, effectiveMinWidth);
 
 			// Restore visible items
 			this._list.splice(0, allItems.length, visibleItems);
@@ -1083,7 +1062,7 @@ export class ActionListWidget<T> extends Disposable {
 				itemWidths.push(width + this._computeToolbarWidth(this._list.element(i)));
 			}
 		}
-		return clamp(Math.max(...itemWidths));
+		return Math.max(...itemWidths, effectiveMinWidth);
 	}
 
 	focusPrevious() {
@@ -1310,9 +1289,7 @@ export class ActionListWidget<T> extends Disposable {
 			return;
 		}
 
-		// Navigated to an item with no hover/submenu — fully tear down any
-		// previous submenu so a blank panel doesn't linger.
-		this._hideSubmenu();
+		this._submenuDisposables.clear();
 	}
 
 	private _showSubmenuForItem(item: IActionListItem<T>): void {
@@ -1389,10 +1366,9 @@ export class ActionListWidget<T> extends Disposable {
 				}
 				for (let ci = 0; ci < group.actions.length; ci++) {
 					const child = group.actions[ci];
-					const extendedChild = child as IAction & { icon?: ThemeIcon; hoverContent?: string; onRemove?: () => void };
-					const icon = extendedChild.icon
+					const icon = (child as IAction & { icon?: ThemeIcon }).icon
 						?? ThemeIcon.fromId(child.checked ? Codicon.check.id : Codicon.blank.id);
-					const hoverContent = extendedChild.hoverContent;
+					const hoverContent = (child as IAction & { hoverContent?: string }).hoverContent;
 					submenuItems.push({
 						item: child,
 						kind: ActionListItemKind.Action,
@@ -1401,7 +1377,6 @@ export class ActionListWidget<T> extends Disposable {
 						group: { title: '', icon },
 						hideIcon: false,
 						hover: hoverContent ? { content: hoverContent } : {},
-						onRemove: extendedChild.onRemove,
 					});
 				}
 				if (gi < groupsWithActions.length - 1) {
@@ -1411,7 +1386,6 @@ export class ActionListWidget<T> extends Disposable {
 			// Also include non-SubmenuAction items directly
 			for (const action of element.submenuActions!) {
 				if (!(action instanceof SubmenuAction)) {
-					const extendedAction = action as IAction & { onRemove?: () => void };
 					submenuItems.push({
 						item: action,
 						kind: ActionListItemKind.Action,
@@ -1420,7 +1394,6 @@ export class ActionListWidget<T> extends Disposable {
 						group: { title: '' },
 						hideIcon: false,
 						hover: {},
-						onRemove: extendedAction.onRemove,
 					});
 				}
 			}
@@ -1449,12 +1422,6 @@ export class ActionListWidget<T> extends Disposable {
 			));
 			this._submenuContainer.appendChild(submenuWidget.domNode);
 			this._currentSubmenuWidget = submenuWidget;
-
-			// The submenu widget's constructor focuses its first item by
-			// default; clear that until the user actually navigates into
-			// the submenu (via ArrowRight) so it doesn't render as if
-			// selected while the parent list still has focus.
-			submenuWidget.clearFocus();
 
 			totalHeight = submenuWidget.computeListHeight();
 			submenuWidget.layout(totalHeight);

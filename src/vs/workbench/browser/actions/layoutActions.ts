@@ -72,15 +72,14 @@ registerAction2(class extends Action2 {
 				...localize2('toggleCenteredLayout', "Toggle Centered Layout"),
 				mnemonicTitle: localize({ key: 'miToggleCenteredLayout', comment: ['&& denotes a mnemonic'] }, "&&Centered Layout"),
 			},
-			precondition: ContextKeyExpr.and(IsAuxiliaryWindowFocusedContext.toNegated(), IsSessionsWindowContext.negate()),
+			precondition: IsAuxiliaryWindowFocusedContext.toNegated(),
 			category: Categories.View,
 			f1: true,
 			toggled: IsMainEditorCenteredLayoutContext,
 			menu: [{
 				id: MenuId.MenubarAppearanceMenu,
 				group: '1_toggle_view',
-				order: 3,
-				when: IsSessionsWindowContext.negate()
+				order: 3
 			}]
 		});
 	}
@@ -791,13 +790,11 @@ if (isWindows || isLinux || isWeb) {
 				},
 				category: Categories.View,
 				f1: true,
-				precondition: IsSessionsWindowContext.negate(),
 				toggled: ContextKeyExpr.and(IsMacNativeContext.toNegated(), ContextKeyExpr.notEquals(`config.${MenuSettings.MenuBarVisibility}`, 'hidden'), ContextKeyExpr.notEquals(`config.${MenuSettings.MenuBarVisibility}`, 'toggle'), ContextKeyExpr.notEquals(`config.${MenuSettings.MenuBarVisibility}`, 'compact')),
 				menu: [{
 					id: MenuId.MenubarAppearanceMenu,
 					group: '2_workbench_layout',
-					order: 0,
-					when: IsSessionsWindowContext.negate()
+					order: 0
 				}]
 			});
 		}

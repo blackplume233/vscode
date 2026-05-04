@@ -90,9 +90,7 @@ onceDocumentLoaded(() => {
 	addImageContexts();
 	if (typeof scrollProgress === 'number' && !settings.settings.fragment) {
 		doAfterImagesLoaded(() => {
-			scrollDisabledCount = 1;
-			if (scrollDisabledTimer) { clearTimeout(scrollDisabledTimer); }
-			scrollDisabledTimer = window.setTimeout(() => { scrollDisabledCount = 0; }, 200);
+			scrollDisabledCount += 1;
 			// Always set scroll of at least 1 to prevent VS Code's webview code from auto scrolling us
 			const scrollToY = Math.max(1, scrollProgress * document.body.clientHeight);
 			window.scrollTo(0, scrollToY);
@@ -115,16 +113,12 @@ onceDocumentLoaded(() => {
 
 				const element = getLineElementForFragment(fragment, documentVersion);
 				if (element) {
-					scrollDisabledCount = 1;
-					if (scrollDisabledTimer) { clearTimeout(scrollDisabledTimer); }
-					scrollDisabledTimer = window.setTimeout(() => { scrollDisabledCount = 0; }, 200);
+					scrollDisabledCount += 1;
 					scrollToRevealSourceLine(element.line, documentVersion, settings);
 				}
 			} else {
 				if (!isNaN(settings.settings.line!)) {
-					scrollDisabledCount = 1;
-					if (scrollDisabledTimer) { clearTimeout(scrollDisabledTimer); }
-					scrollDisabledTimer = window.setTimeout(() => { scrollDisabledCount = 0; }, 200);
+					scrollDisabledCount += 1;
 					scrollToRevealSourceLine(settings.settings.line!, documentVersion, settings);
 				}
 			}
@@ -158,9 +152,7 @@ const onUpdateView = (() => {
 })();
 
 window.addEventListener('resize', () => {
-	scrollDisabledCount = 1;
-	if (scrollDisabledTimer) { clearTimeout(scrollDisabledTimer); }
-	scrollDisabledTimer = window.setTimeout(() => { scrollDisabledCount = 0; }, 200);
+	scrollDisabledCount += 1;
 	updateScrollProgress();
 }, true);
 

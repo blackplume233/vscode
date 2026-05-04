@@ -11,18 +11,6 @@ function isObject(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null;
 }
 
-export enum GraphQLErrorType {
-	Unprocessable = 'UNPROCESSABLE',
-}
-
-export interface GraphQLError {
-	extensions?: {
-		code: string;
-	};
-	type?: GraphQLErrorType;
-	message?: string;
-}
-
 export function getErrorCode(e: unknown): string | undefined {
 	if (!isObject(e)) {
 		return undefined;
@@ -38,14 +26,12 @@ export function getErrorCode(e: unknown): string | undefined {
 	}
 
 	const graphQLErrors = e.graphQLErrors;
-	if (Array.isArray(graphQLErrors) && graphQLErrors.length > 0) {
-		const firstGraphQLError = graphQLErrors[0] as GraphQLError | undefined;
-		if (firstGraphQLError) {
-			if (firstGraphQLError.extensions?.code !== undefined) {
-				return String(firstGraphQLError.extensions.code);
-			}
-			if (firstGraphQLError.type !== undefined) {
-				return String(firstGraphQLError.type);
+	if (Array.isArray(graphQLErrors)) {
+		const firstGraphQLError = graphQLErrors[0];
+		if (isObject(firstGraphQLError)) {
+			const extensions = firstGraphQLError.extensions;
+			if (isObject(extensions) && extensions.code !== undefined) {
+				return String(extensions.code);
 			}
 		}
 	}

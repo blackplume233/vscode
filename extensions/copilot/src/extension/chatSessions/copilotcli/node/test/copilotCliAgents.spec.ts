@@ -94,7 +94,6 @@ describe('CopilotCLIAgents', () => {
 			tools: parsed.header?.tools,
 			userInvocable: parsed.header?.userInvokable ?? true,
 			disableModelInvocation: parsed.header?.disableModelInvocation ?? false,
-			enabled: true
 		};
 	}
 

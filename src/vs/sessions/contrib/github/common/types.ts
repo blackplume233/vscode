@@ -90,13 +90,6 @@ export interface IGitHubPullRequestMergeability {
 	readonly blockers: readonly IMergeBlocker[];
 }
 
-export interface IGitHubPullRequestReview {
-	readonly id: number;
-	readonly author: IGitHubUser;
-	readonly state: string;
-	readonly submittedAt: string;
-}
-
 /**
  * Compute the PR status icon from a state value.
  * Accepts both the `GitHubPullRequestState` enum values and the
@@ -135,7 +128,7 @@ export interface IGitHubPRComment {
 	readonly inReplyToId: number | undefined;
 }
 
-export interface IGitHubPullRequestReviewThread {
+export interface IGitHubPRReviewThread {
 	readonly id: string;
 	readonly isResolved: boolean;
 	readonly path: string;

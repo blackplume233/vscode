@@ -10,7 +10,6 @@ import { ResourceMap } from '../../../../../base/common/map.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ReadonlyChatSessionOptionsMap, IChatNewSessionRequest, IChatSession, IChatSessionCommitEvent, IChatSessionContentProvider, IChatSessionCustomizationItemGroup, IChatSessionCustomizationsProvider, IChatSessionItem, IChatSessionItemController, IChatSessionItemsDelta, IChatSessionOptionsChangeEvent, IChatSessionProviderOptionGroup, IChatSessionRequestHistoryItem, IChatSessionsExtensionPoint, IChatSessionsService, ResolvedChatSessionsExtensionPoint, ChatSessionOptionsMap } from '../../common/chatSessionsService.js';
-import { getChatSessionType } from '../../common/model/chatUri.js';
 import { IChatAgentAttachmentCapabilities } from '../../common/participants/chatAgents.js';
 import { Target } from '../../common/promptSyntax/promptTypes.js';
 
@@ -151,10 +150,9 @@ export class MockChatSessionsService implements IChatSessionsService {
 	}
 
 	async getOrCreateChatSession(sessionResource: URI, token: CancellationToken): Promise<IChatSession> {
-		const sessionType = getChatSessionType(sessionResource);
-		const provider = this.contentProviders.get(sessionType);
+		const provider = this.contentProviders.get(sessionResource.scheme);
 		if (!provider) {
-			throw new Error(`No content provider for ${sessionType}`);
+			throw new Error(`No content provider for ${sessionResource.scheme}`);
 		}
 		return provider.provideChatSessionContent(sessionResource, token);
 	}

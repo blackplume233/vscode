@@ -5,7 +5,6 @@
 
 import './media/modalEditorPart.css';
 import { $, addDisposableListener, append, Dimension, EventHelper, EventType, hide, IDimension, isHTMLElement, setVisibility, show } from '../../../../base/browser/dom.js';
-import { GlobalPointerMoveMonitor } from '../../../../base/browser/globalPointerMoveMonitor.js';
 import { StandardKeyboardEvent } from '../../../../base/browser/keyboardEvent.js';
 import { ActionBar, prepareActions } from '../../../../base/browser/ui/actionbar/actionbar.js';
 import { Button } from '../../../../base/browser/ui/button/button.js';
@@ -384,10 +383,9 @@ export class ModalEditorPart {
 		}));
 
 		// Handle drag on header to move the modal
-		const dragMonitor = disposables.add(new GlobalPointerMoveMonitor());
 		const dragDisposables = disposables.add(new DisposableStore());
 		let didDrag = false;
-		disposables.add(addDisposableListener(headerElement, EventType.POINTER_DOWN, e => {
+		disposables.add(addDisposableListener(headerElement, EventType.MOUSE_DOWN, e => {
 			if (editorPart.maximized) {
 				return; // no drag when maximized
 			}
@@ -397,21 +395,15 @@ export class ModalEditorPart {
 			}
 
 			// Ignore if target is a button or action
-			const target = e.target;
-			if (!isHTMLElement(target)) {
-				return;
-			}
-
+			const target = e.target as HTMLElement;
 			if (target.closest('.monaco-button') || target.closest('.action-item')) {
 				return;
 			}
 
 			// Prevent text selection during drag
-			EventHelper.stop(e, true);
-			dragDisposables.clear();
+			e.preventDefault();
 
-			headerElement.classList.add('dragging');
-			dragDisposables.add(toDisposable(() => headerElement.classList.remove('dragging')));
+			dragDisposables.clear();
 
 			const startX = e.clientX;
 			const startY = e.clientY;
@@ -419,7 +411,7 @@ export class ModalEditorPart {
 			const startTop = parseFloat(resizableElement.domNode.style.top) || 0;
 			didDrag = false;
 
-			const onPointerMove = (moveEvent: PointerEvent) => {
+			const onMouseMove = (moveEvent: MouseEvent) => {
 				didDrag = true;
 				EventHelper.stop(moveEvent, true);
 
@@ -450,7 +442,8 @@ export class ModalEditorPart {
 				resizableElement.domNode.style.top = `${newTop}px`;
 			};
 
-			const onStop = () => {
+			const onMouseUp = (upEvent: MouseEvent) => {
+				EventHelper.stop(upEvent, true);
 				dragDisposables.clear();
 
 				if (didDrag) {
@@ -471,7 +464,8 @@ export class ModalEditorPart {
 				}
 			};
 
-			dragMonitor.startMonitoring(headerElement, e.pointerId, e.buttons, onPointerMove, onStop);
+			dragDisposables.add(addDisposableListener(mainWindow, EventType.MOUSE_MOVE, onMouseMove, true));
+			dragDisposables.add(addDisposableListener(mainWindow, EventType.MOUSE_UP, onMouseUp, true));
 		}));
 
 		// Focus active editor when clicking into the title area with no other click target

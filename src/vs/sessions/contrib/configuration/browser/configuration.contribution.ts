@@ -3,9 +3,24 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Extensions, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
+import { ConfigurationScope, Extensions, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
+import { localize } from '../../../../nls.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
+import { SessionsExperimentalShellGradientBackgroundSettingId } from '../../../common/configuration.js';
 import { ThemeSettingDefaults } from '../../../../workbench/services/themes/common/workbenchThemeService.js';
+
+Registry.as<IConfigurationRegistry>(Extensions.Configuration).registerConfiguration({
+	id: 'sessions',
+	properties: {
+		[SessionsExperimentalShellGradientBackgroundSettingId]: {
+			type: 'boolean',
+			default: false,
+			scope: ConfigurationScope.APPLICATION,
+			tags: ['experimental'],
+			description: localize('sessions.experimental.shellGradientBackground', "Whether to enable the experimental accent-tinted shell background in the Sessions window."),
+		},
+	},
+});
 
 Registry.as<IConfigurationRegistry>(Extensions.Configuration).registerDefaultConfigurations([{
 	overrides: {
@@ -66,7 +81,7 @@ Registry.as<IConfigurationRegistry>(Extensions.Configuration).registerDefaultCon
 		'terminal.integrated.initialHint': false,
 
 		'workbench.browser.openLocalhostLinks': true,
-		'workbench.browser.enableChatTools': true,
+		'workbench.browser.enableChatTools': false,
 
 		'workbench.editor.doubleClickTabToToggleEditorGroupSizes': 'maximize',
 		'workbench.editor.restoreEditors': false,

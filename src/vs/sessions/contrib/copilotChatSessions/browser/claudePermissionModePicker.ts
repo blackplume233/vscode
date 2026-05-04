@@ -15,7 +15,6 @@ import { ActionListItemKind, IActionListDelegate, IActionListItem, IActionListOp
 import { ISessionsManagementService } from '../../../services/sessions/common/sessionsManagement.js';
 import { ISessionsProvidersService } from '../../../services/sessions/browser/sessionsProvidersService.js';
 import { CopilotChatSessionsProvider } from './copilotChatSessionsProvider.js';
-import { IChatSessionsService } from '../../../../workbench/contrib/chat/common/chatSessionsService.js';
 
 const PERMISSION_MODE_OPTION_ID = 'permissionMode';
 
@@ -57,7 +56,6 @@ export class ClaudePermissionModePicker extends Disposable {
 		@IActionWidgetService private readonly actionWidgetService: IActionWidgetService,
 		@ISessionsManagementService private readonly sessionsManagementService: ISessionsManagementService,
 		@ISessionsProvidersService private readonly sessionsProvidersService: ISessionsProvidersService,
-		@IChatSessionsService private readonly chatSessionsService: IChatSessionsService,
 	) {
 		super();
 	}
@@ -142,16 +140,7 @@ export class ClaudePermissionModePicker extends Disposable {
 		}
 		const provider = this.sessionsProvidersService.getProvider(session.providerId);
 		if (provider instanceof CopilotChatSessionsProvider) {
-			const chatSession = provider.getSession(session.sessionId);
-			if (!chatSession) {
-				return;
-			}
-			const option = { id: mode.id, name: mode.label };
-			if (chatSession.setOption) {
-				chatSession.setOption(PERMISSION_MODE_OPTION_ID, option);
-			} else {
-				this.chatSessionsService.setSessionOption(chatSession.resource, PERMISSION_MODE_OPTION_ID, option);
-			}
+			provider.getSession(session.sessionId)?.setOption?.(PERMISSION_MODE_OPTION_ID, { id: mode.id, name: mode.label });
 		}
 	}
 

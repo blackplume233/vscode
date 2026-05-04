@@ -16,7 +16,6 @@ function makeConfig(overrides: Partial<OTelConfig> = {}): OTelConfig {
 		otlpEndpoint: 'http://localhost:4318',
 		otlpProtocol: 'http',
 		captureContent: false,
-		maxAttributeSizeChars: 0,
 		dbSpanExporter: false,
 		logLevel: 'info',
 		httpInstrumentation: false,

@@ -434,17 +434,4 @@ export interface IDefaultChatAgent {
 	readonly completionsAdvancedSetting: string;
 	readonly completionsEnablementSetting: string;
 	readonly nextEditSuggestionsSetting: string;
-
-	/**
-	 * When set, this product uses a native Sessions provider with the given id
-	 * instead of the default Copilot or Local Agent Host providers.
-	 * Guard contributions use this field instead of checking extensionId directly.
-	 */
-	readonly nativeSessionsProviderId?: string;
-
-	/**
-	 * When true, the chat setup flow skips the marketplace extension install step.
-	 * Used for products that ship their own chat extension outside the marketplace.
-	 */
-	readonly skipExtensionInstall?: boolean;
 }

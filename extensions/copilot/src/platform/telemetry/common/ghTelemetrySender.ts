@@ -17,7 +17,7 @@ import { TelemetryData, eventPropertiesToSimpleObject } from '../common/telemetr
 
 
 export class BaseGHTelemetrySender implements ITelemetrySender {
-	protected readonly _disposables: DisposableStore = new DisposableStore();
+	protected _disposables: DisposableStore = new DisposableStore();
 	private _standardTelemetryLogger: TelemetryLogger;
 	private _enhancedTelemetryLogger?: TelemetryLogger;
 

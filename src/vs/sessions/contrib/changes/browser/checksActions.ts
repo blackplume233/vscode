@@ -122,7 +122,7 @@ class ActiveSessionFailedCIChecksContextContribution extends Disposable implemen
 			if (!pr) {
 				return undefined;
 			}
-			return gitHubService.getPullRequestCI(gitHubInfo.owner, gitHubInfo.repo, gitHubInfo.pullRequest.number, pr.headSha);
+			return gitHubService.getPullRequestCI(gitHubInfo.owner, gitHubInfo.repo, pr.headRef);
 		});
 
 		this._register(bindContextKey(hasActiveSessionFailedCIChecks, contextKeyService, reader => {
@@ -178,7 +178,7 @@ class FixCIChecksAction extends Action2 {
 			return;
 		}
 
-		const ciModel = gitHubService.getPullRequestCI(gitHubInfo.owner, gitHubInfo.repo, gitHubInfo.pullRequest.number, pr.headSha);
+		const ciModel = gitHubService.getPullRequestCI(gitHubInfo.owner, gitHubInfo.repo, pr.headRef);
 		const checks = ciModel.checks.get();
 		const failedChecks = getFailedChecks(checks);
 		if (failedChecks.length === 0) {

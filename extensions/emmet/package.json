@@ -384,91 +384,91 @@
       "commandPalette": [
         {
           "command": "editor.emmet.action.wrapWithAbbreviation",
-          "when": "activeEditor && !activeEditorIsReadonly"
+          "when": "!activeEditorIsReadonly"
         },
         {
           "command": "editor.emmet.action.removeTag",
-          "when": "activeEditor && !activeEditorIsReadonly"
+          "when": "!activeEditorIsReadonly"
         },
         {
           "command": "editor.emmet.action.updateTag",
-          "when": "activeEditor && !activeEditorIsReadonly"
+          "when": "!activeEditorIsReadonly"
         },
         {
           "command": "editor.emmet.action.matchTag",
-          "when": "activeEditor && !activeEditorIsReadonly"
+          "when": "!activeEditorIsReadonly"
         },
         {
           "command": "editor.emmet.action.balanceIn",
-          "when": "activeEditor && !activeEditorIsReadonly"
+          "when": "!activeEditorIsReadonly"
         },
         {
           "command": "editor.emmet.action.balanceOut",
-          "when": "activeEditor && !activeEditorIsReadonly"
+          "when": "!activeEditorIsReadonly"
         },
         {
           "command": "editor.emmet.action.prevEditPoint",
-          "when": "activeEditor && !activeEditorIsReadonly"
+          "when": "!activeEditorIsReadonly"
         },
         {
           "command": "editor.emmet.action.nextEditPoint",
-          "when": "activeEditor && !activeEditorIsReadonly"
+          "when": "!activeEditorIsReadonly"
         },
         {
           "command": "editor.emmet.action.mergeLines",
-          "when": "activeEditor && !activeEditorIsReadonly"
+          "when": "!activeEditorIsReadonly"
         },
         {
           "command": "editor.emmet.action.selectPrevItem",
-          "when": "activeEditor && !activeEditorIsReadonly"
+          "when": "!activeEditorIsReadonly"
         },
         {
           "command": "editor.emmet.action.selectNextItem",
-          "when": "activeEditor && !activeEditorIsReadonly"
+          "when": "!activeEditorIsReadonly"
         },
         {
           "command": "editor.emmet.action.splitJoinTag",
-          "when": "activeEditor && !activeEditorIsReadonly"
+          "when": "!activeEditorIsReadonly"
         },
         {
           "command": "editor.emmet.action.toggleComment",
-          "when": "activeEditor && !activeEditorIsReadonly"
+          "when": "!activeEditorIsReadonly"
         },
         {
           "command": "editor.emmet.action.evaluateMathExpression",
-          "when": "activeEditor && !activeEditorIsReadonly"
+          "when": "!activeEditorIsReadonly"
         },
         {
           "command": "editor.emmet.action.updateImageSize",
-          "when": "activeEditor && !activeEditorIsReadonly"
+          "when": "!activeEditorIsReadonly"
         },
         {
           "command": "editor.emmet.action.incrementNumberByOneTenth",
-          "when": "activeEditor && !activeEditorIsReadonly"
+          "when": "!activeEditorIsReadonly"
         },
         {
           "command": "editor.emmet.action.incrementNumberByOne",
-          "when": "activeEditor && !activeEditorIsReadonly"
+          "when": "!activeEditorIsReadonly"
         },
         {
           "command": "editor.emmet.action.incrementNumberByTen",
-          "when": "activeEditor && !activeEditorIsReadonly"
+          "when": "!activeEditorIsReadonly"
         },
         {
           "command": "editor.emmet.action.decrementNumberByOneTenth",
-          "when": "activeEditor && !activeEditorIsReadonly"
+          "when": "!activeEditorIsReadonly"
         },
         {
           "command": "editor.emmet.action.decrementNumberByOne",
-          "when": "activeEditor && !activeEditorIsReadonly"
+          "when": "!activeEditorIsReadonly"
         },
         {
           "command": "editor.emmet.action.decrementNumberByTen",
-          "when": "activeEditor && !activeEditorIsReadonly"
+          "when": "!activeEditorIsReadonly"
         },
         {
           "command": "editor.emmet.action.reflectCSSValue",
-          "when": "activeEditor && !activeEditorIsReadonly"
+          "when": "!activeEditorIsReadonly"
         }
       ]
     }

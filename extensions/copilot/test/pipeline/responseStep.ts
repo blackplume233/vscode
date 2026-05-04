@@ -10,18 +10,7 @@ import { StringText } from '../../src/util/vs/editor/common/core/text/abstractTe
 
 export interface IGeneratedResponse {
 	readonly assistant: string;
-	/**
-	 * Number of oracle edits dropped because they fell outside the edit window.
-	 * Only meaningful for the `EditWindowOnly` format; `0` (or absent) otherwise.
-	 */
-	readonly droppedEditCount?: number;
 }
-
-/**
- * Logger used by response generation to report non-fatal data-quality issues
- * (e.g. oracle edits dropped because they fell outside the edit window).
- */
-export type ResponseLogger = (message: string) => void;
 
 /**
  * Apply offset-based edits to document content.
@@ -152,112 +141,53 @@ export function parseEditWindowFromPrompt(userPrompt: string): {
 }
 
 /**
- * Return the 0-based start/end line numbers (inclusive) for an edit's
- * `[start, endEx)` offset range in the document represented by `transformer`.
- */
-function getEditLineRange(
-	transformer: ReturnType<StringText['getTransformer']>,
-	edit: readonly [start: number, endEx: number, text: string],
-): [startLine: number, endLine: number] {
-	const [start, endEx] = edit;
-	return [
-		transformer.getPosition(start).lineNumber - 1,
-		transformer.getPosition(endEx).lineNumber - 1,
-	];
-}
-
-/** Count `\n` characters in `s` over the half-open range `[start, endEx)`. */
-function countNewlines(s: string, start: number, endEx: number): number {
-	let n = 0;
-	for (let i = start; i < endEx; i++) {
-		if (s.charCodeAt(i) === 10 /* \n */) {
-			n++;
-		}
-	}
-	return n;
-}
-
-/**
- * Filter `oracleEdits` to those fully contained in the line range `[windowStart, windowEnd)`.
- *
- * Oracle edits come from `StringEdit.compose().replacements` upstream
- * ({@link applyEditsToContent} sorts by offset descending and applies to the
- * original doc), so each edit's offsets are independent of every other edit.
- * Each edit is therefore filtered independently — out-of-window edits are
- * dropped without affecting the in-window ones around them.
- */
-export function filterEditsInsideEditWindow(
-	oracleEdits: readonly (readonly [start: number, endEx: number, text: string])[],
-	docContent: string,
-	windowStart: number,
-	windowEnd: number,
-): {
-	kept: readonly (readonly [start: number, endEx: number, text: string])[];
-	droppedCount: number;
-} {
-	const transformer = new StringText(docContent).getTransformer();
-	const kept: (readonly [start: number, endEx: number, text: string])[] = [];
-	let droppedCount = 0;
-	for (const edit of oracleEdits) {
-		const [editStartLine, editEndLine] = getEditLineRange(transformer, edit);
-		const fullyInside = editStartLine >= windowStart && editEndLine < windowEnd;
-		if (fullyInside) {
-			kept.push(edit);
-		} else {
-			droppedCount++;
-		}
-	}
-	return { kept, droppedCount };
-}
-
-/**
  * Format edits as Xtab275 edit-window content.
- *
- * The NES model can only edit lines inside the prompt's `<|code_to_edit|>`
- * window `[K, N)`. Oracle edits outside that range are unrepresentable in this
- * response format — including them would cause the assistant text to "spill
- * out" of the window and duplicate surrounding context when applied. Such
- * edits are discarded via {@link filterEditsInsideEditWindow}.
- *
- * @returns
- *   - `assistant`: the edit-window slice of the document with all kept edits
- *     applied, joined by `\n`. Empty string if every oracle edit was dropped.
- *   - `droppedCount`: number of oracle edits discarded because they fell
- *     outside the window (or followed an edit that did). `0` when all edits
- *     were kept. Callers should surface non-zero values so dataset curators
- *     can spot silent data loss.
+ * Applies edits and re-extracts the edit window lines,
+ * adjusting for line count changes within the window.
  */
 export function formatAsEditWindowOnly(
 	oracleEdits: readonly (readonly [start: number, endEx: number, text: string])[],
 	docContent: string,
 	editWindowStartLine: number,
 	editWindowLineCount: number,
-): { assistant: string; droppedCount: number } {
-	const windowStart = editWindowStartLine;
-	const windowEnd = editWindowStartLine + editWindowLineCount;
+): string {
+	const transformer = new StringText(docContent).getTransformer();
+	let windowStart = editWindowStartLine;
+	let windowEnd = editWindowStartLine + editWindowLineCount;
 
-	const { kept, droppedCount } = filterEditsInsideEditWindow(
-		oracleEdits, docContent, windowStart, windowEnd,
-	);
+	// Ensure the window covers all oracle edits
+	for (const [start, endEx] of oracleEdits) {
+		const editStartLine = transformer.getPosition(start).lineNumber - 1;
+		const editEndLine = transformer.getPosition(endEx).lineNumber - 1;
+		if (editStartLine < windowStart) {
+			windowStart = editStartLine;
+		}
+		if (editEndLine >= windowEnd) {
+			windowEnd = editEndLine + 1;
+		}
+	}
 
-	const modifiedContent = applyEditsToContent(docContent, kept);
+	const modifiedContent = applyEditsToContent(docContent, oracleEdits);
 	const modifiedLines = splitLines(modifiedContent);
 
-	// All kept edits are fully inside the window, so each edit's net line
-	// delta applies directly to the window's line count. We compute the delta
-	// by counting newlines: replacing text containing N newlines with text
-	// containing M newlines changes the document's line count by `M - N`.
+	// Calculate net line change from edits overlapping the window
 	let netLineChange = 0;
-	for (const [start, endEx, text] of kept) {
-		const oldNewlines = countNewlines(docContent, start, endEx);
-		const newNewlines = countNewlines(text, 0, text.length);
-		netLineChange += newNewlines - oldNewlines;
+	for (const [start, endEx, text] of oracleEdits) {
+		const editStartLine = transformer.getPosition(start).lineNumber - 1;
+		const editEndLine = transformer.getPosition(endEx).lineNumber - 1;
+
+		if (editStartLine < windowEnd && editEndLine >= windowStart) {
+			const oldLineCount = splitLines(docContent.substring(start, endEx)).length;
+			const newLineCount = text.length > 0 ? splitLines(text).length : 0;
+			const effectiveOldCount = (endEx - start) === 0 ? 0 : oldLineCount;
+			netLineChange += newLineCount - effectiveOldCount;
+		}
 	}
 
 	const newEndLine = Math.min(windowEnd + netLineChange, modifiedLines.length);
 	const windowLines = modifiedLines.slice(windowStart, newEndLine);
 
-	return { assistant: windowLines.join('\n'), droppedCount };
+	return windowLines.join('\n');
 }
 
 /**
@@ -324,7 +254,6 @@ export function generateResponse(
 	docContent: string,
 	filePath: string,
 	userPrompt: string,
-	log?: ResponseLogger,
 ): IGeneratedResponse | { error: string } {
 	if (!edits || edits.length === 0) {
 		return { error: `No edits available (file: ${filePath})` };
@@ -334,7 +263,7 @@ export function generateResponse(
 		case ResponseFormat.CustomDiffPatch:
 			return generateCustomDiffPatchResponse(edits, docContent, filePath);
 		case ResponseFormat.EditWindowOnly:
-			return generateEditWindowOnlyResponse(edits, docContent, filePath, userPrompt, log);
+			return generateEditWindowOnlyResponse(edits, docContent, filePath, userPrompt);
 		case ResponseFormat.UnifiedWithXml:
 		case ResponseFormat.CodeBlock:
 		case ResponseFormat.EditWindowWithEditIntent:
@@ -362,7 +291,6 @@ function generateEditWindowOnlyResponse(
 	docContent: string,
 	filePath: string,
 	userPrompt: string,
-	log?: ResponseLogger,
 ): IGeneratedResponse | { error: string } {
 	const editWindow = parseEditWindowFromPrompt(userPrompt);
 
@@ -384,16 +312,11 @@ function generateEditWindowOnlyResponse(
 		lineCount = Math.min(editSpan + padding * 2, docLines.length - startLine);
 	}
 
-	const { assistant, droppedCount } = formatAsEditWindowOnly(edits, docContent, startLine, lineCount);
-
-	if (droppedCount > 0) {
-		log?.(`[${filePath}] dropped ${droppedCount}/${edits.length} oracle edit(s) outside edit window [${startLine}, ${startLine + lineCount})`);
-	}
-
+	const assistant = formatAsEditWindowOnly(edits, docContent, startLine, lineCount);
 	if (!assistant || !assistant.trim()) {
-		return { error: `formatAsEditWindowOnly produced empty result (file: ${filePath}, ${edits.length} edits, ${droppedCount} dropped, window: ${startLine}+${lineCount})` };
+		return { error: `formatAsEditWindowOnly produced empty result (file: ${filePath}, ${edits.length} edits, window: ${startLine}+${lineCount})` };
 	}
-	return { assistant, droppedEditCount: droppedCount };
+	return { assistant };
 }
 
 export interface IResponseGenerationInput {
@@ -407,7 +330,6 @@ export interface IResponseGenerationInput {
 export function generateAllResponses(
 	responseFormat: ResponseFormat,
 	inputs: readonly IResponseGenerationInput[],
-	log?: ResponseLogger,
 ): {
 	responses: { index: number; response: IGeneratedResponse }[];
 	errors: { index: number; error: string }[];
@@ -420,7 +342,6 @@ export function generateAllResponses(
 			responseFormat,
 			input.oracleEdits, input.docContent, input.filePath,
 			input.userPrompt,
-			log,
 		);
 		if ('error' in result) {
 			errors.push({ index: input.index, error: result.error });

@@ -315,7 +315,6 @@ function sendIndividualMessagesTelemetry(telemetryService: ITelemetryService, me
 
 		// Convert message to JSON string for chunking
 		const messageJsonString = JSON.stringify(message);
-
 		const maxChunkSize = 8000;
 
 		// Split messageJson into chunks of 8000 characters or less
@@ -392,8 +391,6 @@ function sendModelCallTelemetry(telemetryService: ITelemetryService, messageData
 		// Send one telemetry event per chunk
 		for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) {
 			const parentToolCallId = telemetryData.properties.parentToolCallId;
-			const parentHeaderRequestId = telemetryData.properties.parentHeaderRequestId;
-			const parentModelCallId = telemetryData.properties.parentModelCallId;
 			const modelCallData = TelemetryData.createAndMarkAsIssued({
 				modelCallId,
 				conversationId, // Trajectory identifier linking main and supplementary calls
@@ -406,10 +403,7 @@ function sendModelCallTelemetry(telemetryService: ITelemetryService, messageData
 				...(requestTurn !== undefined && { requestTurn: requestTurn.toString() }), // Add requestTurn only for input calls
 				...(requestOptionsId && { requestOptionsId }), // Add requestOptionsId for input calls
 				...(telemetryData.properties.turnIndex && { turnIndex: telemetryData.properties.turnIndex }), // Add turnIndex from original telemetryData
-				...(telemetryData.properties.iterationNumber && { iterationNumber: telemetryData.properties.iterationNumber }), // Add iterationNumber from tool calling loop
 				...(parentToolCallId && { parentToolCallId }), // Link subagent calls to parent tool invocation
-				...(parentHeaderRequestId && { parentHeaderRequestId }), // Link subagent calls to parent HTTP request
-				...(parentModelCallId && { parentModelCallId }), // Link subagent calls to parent model call
 			}, telemetryData.measurements); // Include measurements from original telemetryData
 
 			telemetryService.sendInternalMSFTTelemetryEvent(eventName, modelCallData.properties, modelCallData.measurements);
@@ -453,7 +447,6 @@ export function sendEngineMessagesTelemetry(telemetryService: ITelemetryService,
 	const telemetryDataWithPrompt = telemetryData.extendedBy({
 		messagesJson: JSON.stringify(messages),
 	});
-
 	telemetryService.sendEnhancedGHTelemetryEvent('engine.messages', multiplexProperties(telemetryDataWithPrompt.properties), telemetryDataWithPrompt.measurements);
 	// Commenting this out to test a new deduplicated way to collect the same information using sendModelTelemetryEvents()
 	// TO DO remove this line completely if the new way allows for complete reconstruction of entire message arrays with much lower drop rate
@@ -544,13 +537,7 @@ export function prepareChatCompletionForReturn(
 		telemetryDataWithUsage = telemetryData.extendedBy({}, {
 			promptTokens: c.usage.prompt_tokens,
 			completionTokens: c.usage.completion_tokens,
-			totalTokens: c.usage.total_tokens,
-			...(c.usage.prompt_tokens_details && { cachedTokens: c.usage.prompt_tokens_details.cached_tokens }),
-			...(c.usage.completion_tokens_details && {
-				reasoningTokens: c.usage.completion_tokens_details.reasoning_tokens,
-				acceptedPredictionTokens: c.usage.completion_tokens_details.accepted_prediction_tokens,
-				rejectedPredictionTokens: c.usage.completion_tokens_details.rejected_prediction_tokens,
-			}),
+			totalTokens: c.usage.total_tokens
 		});
 	}
 

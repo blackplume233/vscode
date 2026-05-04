@@ -23,9 +23,6 @@ import { MarkdownString } from '../../../../base/common/htmlContent.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { URI } from '../../../../base/common/uri.js';
 import { CopilotChatSessionsProvider } from '../../copilotChatSessions/browser/copilotChatSessionsProvider.js';
-import { IChatSessionsService } from '../../../../workbench/contrib/chat/common/chatSessionsService.js';
-
-const PERMISSION_LEVEL_OPTION_ID = 'permissionLevel';
 
 /**
  * Strategy for the per-provider parts of {@link PermissionPicker}: how to read
@@ -351,7 +348,6 @@ export class CopilotPermissionPickerDelegate extends Disposable implements IPerm
 	constructor(
 		@ISessionsManagementService private readonly _sessionsManagementService: ISessionsManagementService,
 		@ISessionsProvidersService private readonly _sessionsProvidersService: ISessionsProvidersService,
-		@IChatSessionsService private readonly _chatSessionsService: IChatSessionsService,
 	) {
 		super();
 	}
@@ -363,16 +359,7 @@ export class CopilotPermissionPickerDelegate extends Disposable implements IPerm
 		}
 		const provider = this._sessionsProvidersService.getProvider(session.providerId);
 		if (provider instanceof CopilotChatSessionsProvider) {
-			const chatSession = provider.getSession(session.sessionId);
-			if (!chatSession) {
-				return;
-			}
-			if (chatSession.setOption) {
-				chatSession.setPermissionLevel(level);
-				chatSession.setOption(PERMISSION_LEVEL_OPTION_ID, level);
-			} else {
-				this._chatSessionsService.setSessionOption(chatSession.resource, PERMISSION_LEVEL_OPTION_ID, level);
-			}
+			provider.getSession(session.sessionId)?.setPermissionLevel(level);
 		}
 	}
 }

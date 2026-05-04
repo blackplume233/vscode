@@ -6,12 +6,13 @@
 import { isWeb } from '../../../../base/common/platform.js';
 import { Disposable, DisposableStore, MutableDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { SessionsWelcomeVisibleContext } from '../../../common/contextkeys.js';
+import { autorun } from '../../../../base/common/observable.js';
 import { localize2 } from '../../../../nls.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IProductService } from '../../../../platform/product/common/productService.js';
 import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase } from '../../../../workbench/common/contributions.js';
 import { IWorkbenchLayoutService } from '../../../../workbench/services/layout/browser/layoutService.js';
-import { IDefaultAccountService } from '../../../../platform/defaultAccount/common/defaultAccount.js';
+import { ChatEntitlement, ChatEntitlementService, IChatEntitlementService } from '../../../../workbench/services/chat/common/chatEntitlementService.js';
 import { IInstantiationService, ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { Action2, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { Categories } from '../../../../platform/action/common/actionCommonCategories.js';
@@ -31,15 +32,29 @@ function shouldSkipSessionsWelcome(environmentService: IWorkbenchEnvironmentServ
 	return typeof globalThis.location !== 'undefined' && new URLSearchParams(globalThis.location.search).has('skip-sessions-welcome');
 }
 
-function shouldPersistWelcomeCompletion(outcome: WalkthroughOutcome, defaultAccountService: IDefaultAccountService): boolean {
-	return outcome === 'completed' || defaultAccountService.currentDefaultAccount !== null;
+function needsChatSetup(chatEntitlementService: Pick<IChatEntitlementService, 'sentiment' | 'entitlement' | 'anonymous'>, includeUnknown: boolean = true): boolean {
+	const { sentiment, entitlement } = chatEntitlementService;
+	return (
+		!sentiment?.completed || // Setup not yet completed
+		sentiment?.disabled ||
+		entitlement === ChatEntitlement.Available ||
+		(
+			includeUnknown &&
+			entitlement === ChatEntitlement.Unknown &&
+			!chatEntitlementService.anonymous
+		)
+	);
+}
+
+function shouldPersistWelcomeCompletion(outcome: WalkthroughOutcome, chatEntitlementService: Pick<IChatEntitlementService, 'sentiment' | 'entitlement' | 'anonymous'>): boolean {
+	return outcome === 'completed' || !needsChatSetup(chatEntitlementService);
 }
 
 export function resetSessionsWelcome(
 	storageService: Pick<IStorageService, 'remove' | 'store'>,
 	instantiationService: IInstantiationService,
 	layoutService: IWorkbenchLayoutService,
-	defaultAccountService: IDefaultAccountService,
+	chatEntitlementService: Pick<IChatEntitlementService, 'sentimentObs' | 'entitlementObs' | 'sentiment' | 'entitlement' | 'anonymous'>,
 	contextKeyService: IContextKeyService,
 	environmentService: IWorkbenchEnvironmentService,
 	logService: ILogService,
@@ -60,20 +75,23 @@ export function resetSessionsWelcome(
 	const walkthrough = store.add(instantiationService.createInstance(
 		SessionsWalkthroughOverlay,
 		layoutService.mainContainer,
-		true,
 	));
 
-	store.add(defaultAccountService.onDidChangeDefaultAccount(account => {
-		if (!walkthrough.isShowingWelcome && walkthrough.isShowingSignIn && account !== null) {
+	store.add(autorun(reader => {
+		chatEntitlementService.sentimentObs.read(reader);
+		chatEntitlementService.entitlementObs.read(reader);
+
+		if (!needsChatSetup(chatEntitlementService)) {
 			storageService.store(WELCOME_COMPLETE_KEY, true, StorageScope.APPLICATION, StorageTarget.MACHINE);
-			walkthrough.showThemeStep();
+			walkthrough.complete();
+			store.dispose();
 		}
 	}));
 
 	walkthrough.outcome
 		.then(outcome => {
 			logService.info(`[sessions welcome] Developer reset walkthrough finished with outcome: ${outcome}`);
-			if (shouldPersistWelcomeCompletion(outcome, defaultAccountService)) {
+			if (shouldPersistWelcomeCompletion(outcome, chatEntitlementService)) {
 				storageService.store(WELCOME_COMPLETE_KEY, true, StorageScope.APPLICATION, StorageTarget.MACHINE);
 			}
 		})
@@ -90,7 +108,7 @@ export class SessionsWelcomeContribution extends Disposable implements IWorkbenc
 	private readonly watcherRef = this._register(new MutableDisposable());
 
 	constructor(
-		@IDefaultAccountService private readonly defaultAccountService: IDefaultAccountService,
+		@IChatEntitlementService private readonly chatEntitlementService: ChatEntitlementService,
 		@IWorkbenchLayoutService private readonly layoutService: IWorkbenchLayoutService,
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
 		@IProductService private readonly productService: IProductService,
@@ -122,15 +140,10 @@ export class SessionsWelcomeContribution extends Disposable implements IWorkbenc
 			return;
 		}
 		const isFirstLaunch = !this.storageService.getBoolean(WELCOME_COMPLETE_KEY, StorageScope.APPLICATION, false);
-
 		if (isFirstLaunch) {
-			// First launch: show the overlay immediately with a loading animation
-			// while the default account resolves, then render the appropriate screen.
-			this.showWalkthrough(true);
+			this.showWalkthrough();
 		} else {
-			// Returning user: don't block with a loading screen — resolve the account
-			// in the background. If signed out, showWalkthrough will be called then.
-			this.watchSignInState();
+			this.showWalkthroughIfNeeded();
 		}
 	}
 
@@ -150,7 +163,7 @@ export class SessionsWelcomeContribution extends Disposable implements IWorkbenc
 		} catch {
 			// Provider not available yet — show walkthrough
 		}
-		this.showWalkthrough(false);
+		this.showWalkthrough();
 	}
 
 	/**
@@ -159,8 +172,6 @@ export class SessionsWelcomeContribution extends Disposable implements IWorkbenc
 	 * sign-out from the account menu), clear the welcome completion marker
 	 * and show the sign-in walkthrough again. Without this, passive sign-out
 	 * leaves the user on a seemingly-working workbench with a stale UI.
-	 *
-	 * Also watches for passive token expiry on web.
 	 */
 	private _watchWebAuth(): void {
 		this._register(this.authenticationService.onDidChangeSessions(async e => {
@@ -177,40 +188,49 @@ export class SessionsWelcomeContribution extends Disposable implements IWorkbenc
 			}
 			this.logService.info('[sessions welcome] GitHub session removed on web, re-showing walkthrough');
 			this.storageService.remove(WELCOME_COMPLETE_KEY, StorageScope.APPLICATION);
-			this.showWalkthrough(false);
+			this.showWalkthrough();
 		}));
 	}
 
+	private showWalkthroughIfNeeded(): void {
+		if (this._needsChatSetup()) {
+			this.showWalkthrough();
+		} else {
+			this.watchEntitlementState();
+		}
+	}
+
 	/**
-	 * Watches the default account after setup has already completed. If the
-	 * user signs out, shows the welcome (sign-in) overlay again. Also
-	 * handles the case where the account resolves to null at startup (the
-	 * user was signed out since their last session).
+	 * Watches entitlement and sentiment observables after setup has already
+	 * completed. If the user's state changes such that setup is needed again
+	 * (e.g. extension uninstalled/disabled), shows the welcome overlay.
+	 *
+	 * {@link ChatEntitlement.Unknown} is intentionally ignored here while the
+	 * welcome completion marker remains set: it is almost always a transient
+	 * state caused by a stale OAuth token being refreshed after an update.
+	 * Explicit sign-out clears that marker first so the next Unknown transition
+	 * immediately returns the user to the sign-in walkthrough.
 	 */
-	private async watchSignInState(): Promise<void> {
-		const initialAccount = await this.defaultAccountService.getDefaultAccount();
-		if (this.overlayRef.value) {
-			return; // overlay already shown by another path
-		}
-		if (!initialAccount) {
-			this.showWalkthrough(false);
-			return;
-		}
-		let signedIn = true;
-		this.watcherRef.value = this.defaultAccountService.onDidChangeDefaultAccount(account => {
-			const nowSignedIn = account !== null;
-			if (signedIn && !nowSignedIn) {
-				// Clear the completion marker so that on the next reload the
-				// welcome overlay's loading animation covers startup, instead
-				// of briefly showing the workbench before the sign-in screen.
-				this.storageService.remove(WELCOME_COMPLETE_KEY, StorageScope.APPLICATION);
-				this.showWalkthrough(false);
+	private watchEntitlementState(): void {
+		let setupComplete = !this._needsChatSetup(false);
+		this.watcherRef.value = autorun(reader => {
+			this.chatEntitlementService.sentimentObs.read(reader);
+			this.chatEntitlementService.entitlementObs.read(reader);
+
+			const includeUnknown = !this.storageService.getBoolean(WELCOME_COMPLETE_KEY, StorageScope.APPLICATION, false);
+			const needsSetup = this._needsChatSetup(includeUnknown);
+			if (setupComplete && needsSetup) {
+				this.showWalkthrough();
 			}
-			signedIn = nowSignedIn;
+			setupComplete = !needsSetup;
 		});
 	}
 
-	private showWalkthrough(isFirstLaunch: boolean): void {
+	private _needsChatSetup(includeUnknown: boolean = true): boolean {
+		return needsChatSetup(this.chatEntitlementService, includeUnknown);
+	}
+
+	private showWalkthrough(): void {
 		if (this.overlayRef.value) {
 			return;
 		}
@@ -227,34 +247,30 @@ export class SessionsWelcomeContribution extends Disposable implements IWorkbenc
 		const walkthrough = this.overlayRef.value.add(this.instantiationService.createInstance(
 			SessionsWalkthroughOverlay,
 			this.layoutService.mainContainer,
-			isFirstLaunch,
 		));
 
-		// When the user signs in, persist completion and finish the walkthrough.
-		// Only auto-complete once the sign-in screen is actually visible — not
-		// during the loading phase — so external account resolution (e.g. VS Code
-		// signing in while the Agents loading animation is still showing) cannot
-		// dismiss the overlay before the user has seen or interacted with it.
-		this.overlayRef.value.add(this.defaultAccountService.onDidChangeDefaultAccount(account => {
-			if (!welcomeCompletionStored && !walkthrough.isShowingWelcome && walkthrough.isShowingSignIn && account !== null) {
+		// When chat setup completes (observables flip), persist completion and
+		// finish the walkthrough so the app can render immediately.
+		this.overlayRef.value.add(autorun(reader => {
+			this.chatEntitlementService.sentimentObs.read(reader);
+			this.chatEntitlementService.entitlementObs.read(reader);
+
+			if (!welcomeCompletionStored && !this._needsChatSetup()) {
 				welcomeCompletionStored = true;
 				this.storageService.store(WELCOME_COMPLETE_KEY, true, StorageScope.APPLICATION, StorageTarget.MACHINE);
-				walkthrough.showThemeStep();
+				walkthrough.complete();
 			}
 		}));
 
 		// Handle the walkthrough outcome
 		walkthrough.outcome.then(outcome => {
 			this.logService.info(`[sessions welcome] Walkthrough finished with outcome: ${outcome}`);
-			if (this._store.isDisposed) {
-				return;
-			}
-			if (!welcomeCompletionStored && shouldPersistWelcomeCompletion(outcome, this.defaultAccountService)) {
+			if (!welcomeCompletionStored && shouldPersistWelcomeCompletion(outcome, this.chatEntitlementService)) {
 				welcomeCompletionStored = true;
 				this.storageService.store(WELCOME_COMPLETE_KEY, true, StorageScope.APPLICATION, StorageTarget.MACHINE);
 			}
 			this.overlayRef.clear();
-			this.watchSignInState();
+			this.watchEntitlementState();
 		});
 	}
 }
@@ -274,10 +290,10 @@ registerAction2(class extends Action2 {
 		const storageService = accessor.get(IStorageService);
 		const instantiationService = accessor.get(IInstantiationService);
 		const layoutService = accessor.get(IWorkbenchLayoutService);
-		const defaultAccountService = accessor.get(IDefaultAccountService);
+		const chatEntitlementService = accessor.get(IChatEntitlementService);
 		const contextKeyService = accessor.get(IContextKeyService);
 		const environmentService = accessor.get(IWorkbenchEnvironmentService);
 		const logService = accessor.get(ILogService);
-		resetSessionsWelcome(storageService, instantiationService, layoutService, defaultAccountService, contextKeyService, environmentService, logService);
+		resetSessionsWelcome(storageService, instantiationService, layoutService, chatEntitlementService, contextKeyService, environmentService, logService);
 	}
 });

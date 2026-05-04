@@ -27,7 +27,6 @@ import { PromptFileParser } from '../../../../common/promptSyntax/promptFilePars
 import { ITextModel } from '../../../../../../../editor/common/model.js';
 import { getPromptFileExtension } from '../../../../common/promptSyntax/config/promptFileLocations.js';
 import { Range } from '../../../../../../../editor/common/core/range.js';
-import { MockChatModeService } from '../../../common/mockChatModeService.js';
 
 suite('PromptHeaderAutocompletion', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
@@ -78,8 +77,7 @@ suite('PromptHeaderAutocompletion', () => {
 			uri: URI.parse('myFs://.github/agents/agent1.agent.md'),
 			source: { storage: PromptsStorage.local },
 			target: Target.Undefined,
-			visibility: { userInvocable: true, agentInvocable: true },
-			enabled: true,
+			visibility: { userInvocable: true, agentInvocable: true }
 		};
 
 		const parser = new PromptFileParser();
@@ -92,7 +90,11 @@ suite('PromptHeaderAutocompletion', () => {
 			}
 		});
 
-		instaService.stub(IChatModeService, new MockChatModeService());
+		instaService.stub(IChatModeService, {
+			getModes() {
+				return { builtin: [], custom: [] };
+			}
+		});
 
 		completionProvider = instaService.createInstance(PromptHeaderAutocompletion);
 	});
@@ -794,7 +796,7 @@ suite('PromptHeaderAutocompletion', () => {
 
 			const actual = await getCompletions(content, PromptsType.prompt);
 			assert.deepStrictEqual(actual.sort(sortByLabel), [
-				{ label: 'agent', result: 'agent: ${0:ask}' },
+				{ label: 'agent', result: 'agent: $0' },
 				{ label: 'argument-hint', result: 'argument-hint: $0' },
 				{ label: 'model', result: 'model: ${0:MAE 4 (olama)}' },
 				{ label: 'name', result: 'name: $0' },

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { IGitHubRepository } from '../../common/types.js';
-import { GitHubApiClient, IGitHubApiResponse } from '../githubApiClient.js';
+import { GitHubApiClient } from '../githubApiClient.js';
 
 interface IGitHubRepoResponse {
 	readonly name: string;
@@ -25,26 +25,19 @@ export class GitHubRepositoryFetcher {
 		private readonly _apiClient: GitHubApiClient,
 	) { }
 
-	async getRepository(owner: string, repo: string, etag?: string): Promise<IGitHubApiResponse<IGitHubRepository>> {
-		const response = await this._apiClient.request<IGitHubRepoResponse>(
+	async getRepository(owner: string, repo: string): Promise<IGitHubRepository> {
+		const data = await this._apiClient.request<IGitHubRepoResponse>(
 			'GET',
 			`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`,
-			'githubApi.getRepository',
-			{ etag }
+			'githubApi.getRepository'
 		);
-
 		return {
-			...response,
-			data: response.data
-				? {
-					owner: response.data.owner.login,
-					name: response.data.name,
-					fullName: response.data.full_name,
-					defaultBranch: response.data.default_branch,
-					isPrivate: response.data.private,
-					description: response.data.description ?? '',
-				}
-				: undefined
+			owner: data.owner.login,
+			name: data.name,
+			fullName: data.full_name,
+			defaultBranch: data.default_branch,
+			isPrivate: data.private,
+			description: data.description ?? '',
 		};
 	}
 }

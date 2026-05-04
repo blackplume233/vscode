@@ -24,8 +24,6 @@ export const Menus = {
 	AuxiliaryBarTitle: new MenuId('SessionsAuxiliaryBarTitle'),
 	SidebarFooter: new MenuId('SessionsSidebarFooter'),
 	SidebarCustomizations: new MenuId('SessionsSidebarCustomizations'),
-	SidebarAgentHost: new MenuId('SessionsSidebarAgentHost'),
-	AccountMenu: new MenuId('SessionsAccountMenu'),
 	AgentFeedbackEditorContent: new MenuId('AgentFeedbackEditorContent'),
 
 	NewSessionConfig: new MenuId('NewSessions.SessionConfigMenu'),

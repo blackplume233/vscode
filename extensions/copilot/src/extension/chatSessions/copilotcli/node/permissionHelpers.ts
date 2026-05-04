@@ -66,30 +66,30 @@ export async function handleReadPermission(
 	const file = Uri.file(permissionRequest.path);
 
 	if (imageSupport.isTrustedImage(file)) {
-		return { kind: 'approve-once' };
+		return { kind: 'approved' };
 	}
 
 	if (isFileFromSessionWorkspace(file, workspaceInfo)) {
 		logService.trace(`[CopilotCLISession] Auto Approving request to read file in session workspace ${permissionRequest.path}`);
-		return { kind: 'approve-once' };
+		return { kind: 'approved' };
 	}
 
 	if (workspaceService.getWorkspaceFolder(file)) {
 		logService.trace(`[CopilotCLISession] Auto Approving request to read workspace file ${permissionRequest.path}`);
-		return { kind: 'approve-once' };
+		return { kind: 'approved' };
 	}
 
 	// Auto-approve reads of internal session resources (e.g. plan.md).
 	const sessionDir = Uri.joinPath(Uri.file(getCopilotCLISessionStateDir()), sessionId);
 	if (extUriBiasedIgnorePathCase.isEqualOrParent(file, sessionDir)) {
 		logService.trace(`[CopilotCLISession] Auto Approving request to read Copilot CLI session resource ${permissionRequest.path}`);
-		return { kind: 'approve-once' };
+		return { kind: 'approved' };
 	}
 
 	// Auto-approve if the file was explicitly attached by the user.
 	if (attachments.some(attachment => attachment.type === 'file' && isEqual(Uri.file(attachment.path), file))) {
 		logService.trace(`[CopilotCLISession] Auto Approving request to read attached file ${permissionRequest.path}`);
-		return { kind: 'approve-once' };
+		return { kind: 'approved' };
 	}
 
 	const toolParams: CoreConfirmationToolParams = {
@@ -149,7 +149,7 @@ export async function handleWritePermission(
 		if (autoApprove) {
 			logService.trace(`[CopilotCLISession] Auto Approving request ${editFile.fsPath}`);
 			await trackEditIfNeeded(editTracker, toolCall, editFile, stream, logService);
-			return { kind: 'approve-once' };
+			return { kind: 'approved' };
 		}
 	}
 
@@ -157,7 +157,7 @@ export async function handleWritePermission(
 	const sessionDir = Uri.joinPath(Uri.file(getCopilotCLISessionStateDir()), sessionId);
 	if (editFile && extUriBiasedIgnorePathCase.isEqualOrParent(editFile, sessionDir)) {
 		logService.trace(`[CopilotCLISession] Auto Approving request to write to Copilot CLI session resource ${editFile.fsPath}`);
-		return { kind: 'approve-once' };
+		return { kind: 'approved' };
 	}
 
 	// Fall back to interactive confirmation. If approved, track the edit.
@@ -174,10 +174,10 @@ export async function handleWritePermission(
 		if (editFile) {
 			await trackEditIfNeeded(editTracker, toolCall, editFile, stream, logService);
 		}
-		return { kind: 'approve-once' };
+		return { kind: 'approved' };
 	}
 	const result = await invokeConfirmationTool(toolParams, toolParentCallId, toolsService, toolInvocationToken, logService, token);
-	if (result.kind === 'approve-once' && editFile) {
+	if (result.kind === 'approved' && editFile) {
 		await trackEditIfNeeded(editTracker, toolCall, editFile, stream, logService);
 	}
 	return result;
@@ -282,7 +282,7 @@ async function invokeConfirmationTool(
 		const result = await toolsService.invokeTool(tool, { input, toolInvocationToken, subAgentInvocationId: toolParentCallId }, token);
 		const firstResultPart = result.content.at(0);
 		if (firstResultPart instanceof LanguageModelTextPart && typeof firstResultPart.value === 'string' && firstResultPart.value.toLowerCase() === 'yes') {
-			return { kind: 'approve-once' };
+			return { kind: 'approved' };
 		}
 	} catch (error) {
 		logService.error(error, `[CopilotCLISession] Permission request error`);

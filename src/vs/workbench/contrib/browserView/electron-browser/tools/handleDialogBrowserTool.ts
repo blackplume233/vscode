@@ -10,12 +10,11 @@ import { localize } from '../../../../../nls.js';
 import { IPlaywrightService } from '../../../../../platform/browserView/common/playwrightService.js';
 import { ToolDataSource, type CountTokensCallback, type IPreparedToolInvocation, type IToolData, type IToolImpl, type IToolInvocation, type IToolInvocationPreparationContext, type IToolResult, type ToolProgress } from '../../../chat/common/tools/languageModelToolsService.js';
 import { createBrowserPageLink, errorResult } from './browserToolHelpers.js';
-import { BrowserChatToolReferenceName } from '../../common/browserChatToolReferenceNames.js';
 import { OpenPageToolId } from './openBrowserTool.js';
 
 export const HandleDialogBrowserToolData: IToolData = {
 	id: 'handle_dialog',
-	toolReferenceName: BrowserChatToolReferenceName.HandleDialog,
+	toolReferenceName: 'handleDialog',
 	displayName: localize('handleDialogBrowserTool.displayName', 'Handle Dialog'),
 	userDescription: localize('handleDialogBrowserTool.userDescription', 'Respond to a dialog in a browser page'),
 	modelDescription: 'Respond to a pending modal (alert, confirm, prompt) or file chooser dialog on a browser page.',

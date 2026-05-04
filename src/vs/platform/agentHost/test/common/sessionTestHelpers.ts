@@ -170,13 +170,8 @@ export function createNoopGitService(): import('../../node/agentHostGitService.j
 		getRepositoryRoot: async () => undefined,
 		getWorktreeRoots: async () => [],
 		addWorktree: async () => { },
-		addExistingWorktree: async () => { },
 		removeWorktree: async () => { },
-		branchExists: async () => false,
-		hasUncommittedChanges: async () => false,
 		getSessionGitState: async () => undefined,
-		computeSessionFileDiffs: async () => undefined,
-		showBlob: async () => undefined,
 	};
 }
 

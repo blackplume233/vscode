@@ -26,8 +26,6 @@ export const enum SessionConfigKey {
 	Branch = 'branch',
 	/** `'branchNameHint'` — client-supplied hint used during worktree creation. */
 	BranchNameHint = 'branchNameHint',
-	/** `'mode'` — agent execution mode (interactive / plan). */
-	Mode = 'mode',
 }
 
 /**

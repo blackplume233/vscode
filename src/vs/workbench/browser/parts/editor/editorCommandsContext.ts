@@ -66,10 +66,9 @@ function getCommandsContext(commandArgs: unknown[], editorService: IEditorServic
 	// Get editor context for which the command was triggered
 	let editorContext = getEditorContextFromCommandArgs(commandArgs, isListAction, editorService, editorGroupsService, listService);
 
-	// If the editor context can not be determined use the active editor
+	// If the editor context can not be determind use the active editor
 	if (!editorContext) {
-		const modalEditorPart = editorGroupsService.activeModalEditorPart;
-		const activeGroup = modalEditorPart?.activeGroup ?? editorGroupsService.activeGroup;
+		const activeGroup = editorGroupsService.activeGroup;
 		const activeEditor = activeGroup.activeEditor;
 		editorContext = { groupId: activeGroup.id, editorIndex: activeEditor ? activeGroup.getIndexOfEditor(activeEditor) : undefined };
 		isListAction = false;

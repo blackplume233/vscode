@@ -8,12 +8,3 @@ export const enum SettingsIds {
 	CachedWindowsExecutableExtensions = 'terminal.integrated.suggest.windowsExecutableExtensions',
 	CachedWindowsExecutableExtensionsSuffixOnly = 'windowsExecutableExtensions',
 }
-
-export const enum TerminalShellType {
-	Bash = 'bash',
-	Fish = 'fish',
-	Zsh = 'zsh',
-	PowerShell = 'pwsh',
-	WindowsPowerShell = 'powershell',
-	GitBash = 'gitbash',
-}

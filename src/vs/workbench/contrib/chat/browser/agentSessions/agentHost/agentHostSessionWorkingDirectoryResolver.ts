@@ -12,32 +12,26 @@ export const IAgentHostSessionWorkingDirectoryResolver = createDecorator<IAgentH
 
 export interface IAgentHostSessionWorkingDirectoryResolver {
 	readonly _serviceBrand: undefined;
-	registerResolver(sessionType: string, resolver: (sessionResource: URI) => URI | undefined, isNewSession?: (sessionResource: URI) => boolean): IDisposable;
+	registerResolver(sessionType: string, resolver: (sessionResource: URI) => URI | undefined): IDisposable;
 	resolve(sessionResource: URI): URI | undefined;
-	isNewSession(sessionResource: URI): boolean;
 }
 
 class AgentHostSessionWorkingDirectoryResolver implements IAgentHostSessionWorkingDirectoryResolver {
 	declare readonly _serviceBrand: undefined;
 
-	private readonly _resolvers = new Map<string, { readonly resolve: (sessionResource: URI) => URI | undefined; readonly isNewSession?: (sessionResource: URI) => boolean }>();
+	private readonly _resolvers = new Map<string, (sessionResource: URI) => URI | undefined>();
 
-	registerResolver(sessionType: string, resolver: (sessionResource: URI) => URI | undefined, isNewSession?: (sessionResource: URI) => boolean): IDisposable {
-		const entry = { resolve: resolver, isNewSession };
-		this._resolvers.set(sessionType, entry);
+	registerResolver(sessionType: string, resolver: (sessionResource: URI) => URI | undefined): IDisposable {
+		this._resolvers.set(sessionType, resolver);
 		return toDisposable(() => {
-			if (this._resolvers.get(sessionType) === entry) {
+			if (this._resolvers.get(sessionType) === resolver) {
 				this._resolvers.delete(sessionType);
 			}
 		});
 	}
 
 	resolve(sessionResource: URI): URI | undefined {
-		return this._resolvers.get(sessionResource.scheme)?.resolve(sessionResource);
-	}
-
-	isNewSession(sessionResource: URI): boolean {
-		return this._resolvers.get(sessionResource.scheme)?.isNewSession?.(sessionResource) ?? false;
+		return this._resolvers.get(sessionResource.scheme)?.(sessionResource);
 	}
 }
 

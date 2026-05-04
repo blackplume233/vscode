@@ -6,7 +6,7 @@
 import 'mocha';
 import { strictEqual } from 'node:assert';
 import { getTokenType, TokenType } from '../tokens';
-import { TerminalShellType } from '../constants';
+import { TerminalShellType } from '../terminalSuggestMain';
 
 suite('Terminal Suggest', () => {
 	test('simple command', () => {

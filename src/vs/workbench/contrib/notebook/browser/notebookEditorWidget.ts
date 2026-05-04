@@ -416,6 +416,13 @@ export class NotebookEditorWidget extends Disposable implements INotebookEditorD
 		}));
 
 		const container = creationOptions.codeWindow ? this.layoutService.getContainer(creationOptions.codeWindow) : this.layoutService.mainContainer;
+		this._register(editorGroupsService.getPart(container).onDidScroll(e => {
+			if (!this._shadowElement || !this._isVisible) {
+				return;
+			}
+
+			this.layoutContainerOverShadowElement(this._shadowElement);
+		}));
 
 		this.notebookEditorService.addNotebookEditor(this);
 
@@ -1935,8 +1942,12 @@ export class NotebookEditorWidget extends Disposable implements INotebookEditorD
 		}
 
 		const modalEditorContainer = this.editorGroupsService.activeModalEditorPart?.modalElement;
-		const isModal = DOM.isHTMLElement(modalEditorContainer) && modalEditorContainer.contains(anchorElement);
-		const clippingContainer = isModal ? undefined : this.layoutService.getContainer(DOM.getWindow(this.getDomNode()), Parts.EDITOR_PART);
+		let clippingContainer: HTMLElement | undefined;
+		if (DOM.isHTMLElement(modalEditorContainer) && modalEditorContainer.contains(anchorElement)) {
+			clippingContainer = modalEditorContainer;
+		} else {
+			clippingContainer = this.layoutService.getContainer(DOM.getWindow(this.getDomNode()), Parts.EDITOR_PART);
+		}
 
 		this._overlayContainer.style.visibility = 'visible';
 		this._overlayLayout.setAnchorElement(anchorElement, { clippingContainer });

@@ -154,11 +154,6 @@ declare module 'vscode' {
 		timeToFirstTokenInMillis?: number;
 
 		/**
-		 * The unique request id assigned by the model provider for this turn.
-		 */
-		requestId?: string;
-
-		/**
 		 * The maximum number of prompt/input tokens allowed for this request.
 		 */
 		maxInputTokens?: number;
@@ -172,14 +167,6 @@ declare module 'vscode' {
 		 * The short name or label identifying this request (e.g., "panel/editAgent").
 		 */
 		requestName?: string;
-
-		/**
-		 * Cache-relevant request options as a JSON-stringified blob (e.g.
-		 * `tool_choice`, `reasoning_effort`, `thinking`, `response_format`).
-		 * When this differs between two requests, the prompt cache is
-		 * invalidated even if the message array is byte-identical.
-		 */
-		requestOptions?: string;
 
 		/**
 		 * The outcome status of the model turn (e.g., "success", "failure", "canceled").
@@ -560,11 +547,6 @@ declare module 'vscode' {
 		timeToFirstTokenInMillis?: number;
 
 		/**
-		 * The unique request id assigned by the model provider for this turn.
-		 */
-		requestId?: string;
-
-		/**
 		 * The maximum number of prompt/input tokens allowed for this request.
 		 */
 		maxInputTokens?: number;
@@ -593,14 +575,6 @@ declare module 'vscode' {
 		 * The total number of tokens consumed (input + output).
 		 */
 		totalTokens?: number;
-
-		/**
-		 * Cache-relevant request options as a JSON-stringified blob (e.g.
-		 * `tool_choice`, `reasoning_effort`, `thinking`, `response_format`).
-		 * When this differs between two requests, the prompt cache is
-		 * invalidated even if the message array is byte-identical.
-		 */
-		requestOptions?: string;
 
 		/**
 		 * An error message, if the model turn failed.

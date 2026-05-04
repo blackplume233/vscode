@@ -859,20 +859,28 @@ suite('TerminalSandboxService - network domains', () => {
 		strictEqual(await sandboxService.isEnabled(), false, 'Deprecated settings should not be used when only non-user scopes are set');
 	});
 
-	test('should not fall back to deprecated chat.agent.sandbox setting due to namespace conflicts', async () => {
-		configurationService.setUserConfiguration(AgentSandboxSettingId.AgentSandboxEnabled, undefined);
-		configurationService.setUserConfiguration(TerminalChatAgentToolsSettingId.AgentSandboxLinuxFileSystem, {
-			allowWrite: ['/tmp']
-		});
-		const namespaceValue = { fileSystem: { linux: { allowWrite: ['/tmp'] } } };
+	test('should fall back to deprecated chat.agent.sandbox setting in user scope', async () => {
 		const originalInspect = configurationService.inspect.bind(configurationService);
 		configurationService.inspect = <T>(key: string) => {
+			if (key === AgentSandboxSettingId.AgentSandboxEnabled) {
+				return {
+					value: undefined,
+					defaultValue: AgentSandboxEnabledValue.Off,
+					userValue: undefined,
+					userLocalValue: undefined,
+					userRemoteValue: undefined,
+					workspaceValue: undefined,
+					workspaceFolderValue: undefined,
+					memoryValue: undefined,
+					policyValue: undefined,
+				} as ReturnType<typeof originalInspect<T>>;
+			}
 			if (key === AgentSandboxSettingId.DeprecatedAgentSandboxEnabled) {
 				return {
-					value: namespaceValue,
+					value: true,
 					defaultValue: false,
-					userValue: namespaceValue,
-					userLocalValue: namespaceValue,
+					userValue: true,
+					userLocalValue: true,
 					userRemoteValue: undefined,
 					workspaceValue: undefined,
 					workspaceFolderValue: undefined,
@@ -882,15 +890,6 @@ suite('TerminalSandboxService - network domains', () => {
 			}
 			return originalInspect<T>(key);
 		};
-
-		const sandboxService = store.add(instantiationService.createInstance(TerminalSandboxService));
-
-		strictEqual(await sandboxService.isEnabled(), false, 'Child settings under chat.agent.sandbox should not be treated as the deprecated boolean setting');
-	});
-
-	test('should fall back to deprecated chat.agent.sandbox setting in user scope', async () => {
-		configurationService.setUserConfiguration(AgentSandboxSettingId.AgentSandboxEnabled, undefined);
-		configurationService.setUserConfiguration(AgentSandboxSettingId.DeprecatedAgentSandboxEnabled, true);
 
 		const sandboxService = store.add(instantiationService.createInstance(TerminalSandboxService));
 

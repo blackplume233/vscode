@@ -29,7 +29,6 @@ import { NativeEditContextRegistry } from '../../../../../../../editor/browser/c
 import { TextAreaEditContextRegistry } from '../../../../../../../editor/browser/controller/editContext/textArea/textAreaEditContextRegistry.js';
 import { CancellationToken } from '../../../../../../../base/common/cancellation.js';
 import { ThrottledDelayer } from '../../../../../../../base/common/async.js';
-import { isCancellationError } from '../../../../../../../base/common/errors.js';
 import { IEditorService } from '../../../../../../services/editor/common/editorService.js';
 import { getChatSessionType } from '../../../../common/model/chatUri.js';
 import { ICustomizationHarnessService } from '../../../../common/customizationHarnessService.js';
@@ -203,12 +202,7 @@ class InputEditorDecorations extends Disposable {
 		this.updateInputPlaceholderDecoration();
 
 		// with a delay, update the rest of the decorations
-		this.updateThrottle.trigger(token => this.updateAsyncInputEditorDecorations(token)).catch(err => {
-			// Throttled delayers reject with CancellationError when disposed mid-flight.
-			if (!isCancellationError(err)) {
-				throw err;
-			}
-		});
+		this.updateThrottle.trigger(token => this.updateAsyncInputEditorDecorations(token));
 	}
 
 	private updateInputPlaceholderDecoration(): void {

@@ -62,7 +62,6 @@ suite('formatEventDetail', () => {
 			model: 'gpt-4o',
 			inputTokens: 100,
 			outputTokens: 50,
-			cachedTokens: 80,
 			totalTokens: 150,
 			durationInMillis: 320,
 		};
@@ -70,7 +69,6 @@ suite('formatEventDetail', () => {
 		assert.ok(result.includes('gpt-4o'));
 		assert.ok(result.includes('100'));
 		assert.ok(result.includes('50'));
-		assert.ok(result.includes('80'));
 		assert.ok(result.includes('150'));
 		assert.ok(result.includes('320'));
 	});

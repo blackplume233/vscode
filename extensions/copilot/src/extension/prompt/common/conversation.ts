@@ -80,7 +80,6 @@ export class Turn {
 			request.editedFileEvents,
 			request.acceptedConfirmationData,
 			isToolCallLimitAcceptance(request) || isContinueOnError(request) || isSwitchToAutoOnRateLimit(request),
-			request.modeInstructions2,
 		);
 	}
 
@@ -91,8 +90,7 @@ export class Turn {
 		private readonly _toolReferences: readonly InternalToolReference[] = [],
 		readonly editedFileEvents?: ChatRequestEditedFileEvent[],
 		readonly acceptedConfirmationData?: unknown[],
-		readonly isContinuation = false,
-		readonly modeInstructions?: ChatRequest['modeInstructions2'],
+		readonly isContinuation = false
 	) { }
 
 	get promptVariables(): ChatVariablesCollection | undefined {

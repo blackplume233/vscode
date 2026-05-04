@@ -9,6 +9,8 @@ use std::{
 	path::{Path, PathBuf},
 };
 
+use async_trait::async_trait;
+
 use crate::{
 	constants::APPLICATION_NAME,
 	log,
@@ -35,6 +37,7 @@ impl LaunchdService {
 	}
 }
 
+#[async_trait]
 impl ServiceManager for LaunchdService {
 	async fn register(
 		&self,

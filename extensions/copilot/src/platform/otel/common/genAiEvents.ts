@@ -51,15 +51,14 @@ export function emitInferenceDetailsEvent(
 		attributes[StdAttr.ERROR_TYPE] = error.type;
 	}
 
-	// Full content capture (optionally truncated per OTelConfig.maxAttributeSizeChars).
-	// Normalize to OTel GenAI semantic convention format.
+	// Full content capture with truncation to prevent OTLP batch failures
+	// Normalize to OTel GenAI semantic convention format
 	if (otel.config.captureContent) {
-		const maxLen = otel.config.maxAttributeSizeChars;
 		if (request.messages !== undefined) {
 			const msgs = Array.isArray(request.messages) ? request.messages as ReadonlyArray<Record<string, unknown>> : undefined;
 			attributes[GenAiAttr.INPUT_MESSAGES] = truncateForOTel(JSON.stringify(
 				msgs ? normalizeProviderMessages(msgs) : request.messages
-			), maxLen);
+			));
 		}
 		if (request.systemMessage !== undefined) {
 			const systemText = typeof request.systemMessage === 'string'
@@ -67,11 +66,11 @@ export function emitInferenceDetailsEvent(
 				: JSON.stringify(request.systemMessage);
 			const systemInstructions = toSystemInstructions(systemText);
 			if (systemInstructions !== undefined) {
-				attributes[GenAiAttr.SYSTEM_INSTRUCTIONS] = truncateForOTel(JSON.stringify(systemInstructions), maxLen);
+				attributes[GenAiAttr.SYSTEM_INSTRUCTIONS] = truncateForOTel(JSON.stringify(systemInstructions));
 			}
 		}
 		if (request.tools !== undefined) {
-			attributes[GenAiAttr.TOOL_DEFINITIONS] = truncateForOTel(JSON.stringify(request.tools), maxLen);
+			attributes[GenAiAttr.TOOL_DEFINITIONS] = truncateForOTel(JSON.stringify(request.tools));
 		}
 	}
 

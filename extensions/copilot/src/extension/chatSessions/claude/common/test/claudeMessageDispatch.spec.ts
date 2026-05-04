@@ -60,7 +60,7 @@ interface TestServices {
 function createTestServices(): TestServices {
 	return {
 		logService: new TestLogService(),
-		otelService: { startSpan: () => noopSpan, config: { maxAttributeSizeChars: 0 } } as unknown as IOTelService,
+		otelService: { startSpan: () => noopSpan } as Pick<IOTelService, 'startSpan'> as IOTelService,
 		toolsService: { invokeTool: vi.fn() } as Pick<IToolsService, 'invokeTool'> as IToolsService,
 		requestLogger: { logToolCall: vi.fn(), captureInvocation: vi.fn() },
 		sessionStateService: { setPermissionModeForSession: vi.fn(), getCapturingTokenForSession: vi.fn().mockReturnValue(undefined) },
@@ -98,7 +98,6 @@ function createState(): MessageHandlerState {
 		unprocessedToolCalls: new Map(),
 		otelToolSpans: new Map(),
 		otelHookSpans: new Map(),
-		subagentTraceContexts: new Map(),
 	};
 }
 
@@ -636,7 +635,7 @@ describe('handleHookStarted', () => {
 		handleHookStarted(makeHookStarted('hook-42', 'lint-check', 'PreToolUse'), accessor, TEST_SESSION_ID, state);
 
 		expect(startSpanSpy).toHaveBeenCalledWith(
-			'execute_hook lint-check',
+			'user_hook PreToolUse:lint-check',
 			expect.objectContaining({ attributes: expect.any(Object) }),
 		);
 		expect(state.otelHookSpans.has('hook-42')).toBe(true);

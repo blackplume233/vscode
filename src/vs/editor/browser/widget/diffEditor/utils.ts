@@ -155,12 +155,7 @@ export function animatedObservable(targetWindow: Window, base: IObservableWithCh
 
 		startVal = curVal;
 		targetVal = base.read(reader);
-		if (startVal === targetVal) {
-			// No change, no animation
-			animationStartMs = Date.now() - durationMs;
-		} else {
-			animationStartMs = Date.now() - (s.animate ? 0 : durationMs);
-		}
+		animationStartMs = Date.now() - (s.animate ? 0 : durationMs);
 
 		update();
 	}));

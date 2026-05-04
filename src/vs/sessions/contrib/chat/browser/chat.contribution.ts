@@ -39,7 +39,6 @@ import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextke
 import { AccessibleViewRegistry } from '../../../../platform/accessibility/browser/accessibleViewRegistry.js';
 import { SessionsChatAccessibilityHelp } from './sessionsChatAccessibilityHelp.js';
 import { SessionsOpenerParticipantContribution } from './sessionsOpenerParticipant.js';
-import '../../sessions/browser/mobile/mobileOverlayContribution.js';
 
 
 class NewChatInSessionsWindowAction extends Action2 {

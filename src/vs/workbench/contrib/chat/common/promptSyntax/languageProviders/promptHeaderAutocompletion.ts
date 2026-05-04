@@ -12,7 +12,6 @@ import { ITextModel } from '../../../../../../editor/common/model.js';
 import { ILanguageModelChatMetadata, ILanguageModelsService } from '../../languageModels.js';
 import { ILanguageModelToolsService } from '../../tools/languageModelToolsService.js';
 import { IChatModeService } from '../../chatModes.js';
-import { localChatSessionType } from '../../chatSessionsService.js';
 import { getPromptsTypeForLanguageId, PromptsType, Target } from '../promptTypes.js';
 import { IPromptsService } from '../service/promptsService.js';
 import { Iterable } from '../../../../../../base/common/iterator.js';
@@ -144,7 +143,7 @@ export class PromptHeaderAutocompletion implements CompletionItemProvider {
 		for (const attr of header.attributes) {
 			attributesToPropose.delete(attr.key);
 		}
-		const getInsertText = async (key: string): Promise<string> => {
+		const getInsertText = (key: string): string => {
 			if (colonPosition) {
 				return key;
 			}
@@ -153,7 +152,7 @@ export class PromptHeaderAutocompletion implements CompletionItemProvider {
 				const hookNames = Object.keys(HOOKS_BY_TARGET[target] ?? HOOKS_BY_TARGET[Target.Undefined]);
 				return `${key}:\n  \${1|${hookNames.join(',')}|}:\n    - type: command\n      command: "$2"`;
 			}
-			const valueSuggestions = await this.getValueSuggestions(promptType, key, target);
+			const valueSuggestions = this.getValueSuggestions(promptType, key, target);
 			if (valueSuggestions.length > 0) {
 				return `${key}: \${0:${valueSuggestions[0].name}}`;
 			} else {
@@ -167,7 +166,7 @@ export class PromptHeaderAutocompletion implements CompletionItemProvider {
 				label: attribute,
 				documentation: getAttributeDefinition(attribute, promptType, target)?.description,
 				kind: CompletionItemKind.Property,
-				insertText: await getInsertText(attribute),
+				insertText: getInsertText(attribute),
 				insertTextRules: CompletionItemInsertTextRule.InsertAsSnippet,
 				range: new Range(position.lineNumber, 1, position.lineNumber, !colonPosition ? model.getLineMaxColumn(position.lineNumber) : colonPosition.column),
 			};
@@ -234,7 +233,7 @@ export class PromptHeaderAutocompletion implements CompletionItemProvider {
 		if (attribute.key === PromptHeaderAttributes.agents) {
 			if (attribute.value.type === 'sequence') {
 				return this.provideArrayCompletions(model, position, attribute.value, async () => {
-					return (await this.promptsService.getCustomAgents(CancellationToken.None)).filter(a => a.enabled);
+					return await this.promptsService.getCustomAgents(CancellationToken.None);
 				});
 			}
 		}
@@ -252,7 +251,7 @@ export class PromptHeaderAutocompletion implements CompletionItemProvider {
 		}
 		const lineContent = model.getLineContent(attribute.range.startLineNumber);
 		const whilespaceAfterColon = (lineContent.substring(colonPosition.column).match(/^\s*/)?.[0].length) ?? 0;
-		const entries = await this.getValueSuggestions(promptType, attribute.key, target);
+		const entries = this.getValueSuggestions(promptType, attribute.key, target);
 		for (const entry of entries) {
 			const item: CompletionItem = {
 				label: entry.name,
@@ -563,7 +562,7 @@ export class PromptHeaderAutocompletion implements CompletionItemProvider {
 		return undefined;
 	}
 
-	private async getValueSuggestions(promptType: PromptsType, attribute: string, target: Target): Promise<readonly IValueEntry[]> {
+	private getValueSuggestions(promptType: PromptsType, attribute: string, target: Target): readonly IValueEntry[] {
 		const attributeDesc = getAttributeDefinition(attribute, promptType, target);
 		if (attributeDesc?.enums) {
 			return attributeDesc.enums;
@@ -576,7 +575,7 @@ export class PromptHeaderAutocompletion implements CompletionItemProvider {
 			case PromptHeaderAttributes.mode:
 				if (promptType === PromptsType.prompt) {
 					// Get all available agents (builtin + custom)
-					const agents = await this.chatModeService.awaitModes(localChatSessionType);
+					const agents = this.chatModeService.getModes();
 					const suggestions: IValueEntry[] = [];
 					for (const agent of Iterable.concat(agents.builtin, agents.custom)) {
 						suggestions.push({ name: agent.name.get(), description: agent.label.get() });

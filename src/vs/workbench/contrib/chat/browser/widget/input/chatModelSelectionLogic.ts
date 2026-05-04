@@ -12,6 +12,7 @@ import { ILanguageModelChatMetadata, ILanguageModelChatMetadataAndIdentifier } f
 interface IModelSelectionContext {
 	readonly location: ChatAgentLocation;
 	readonly currentModeKind: ChatModeKind;
+	readonly isInlineChatV2Enabled: boolean;
 	readonly sessionType: string | undefined;
 }
 
@@ -25,6 +26,7 @@ export function filterModelsForSession(
 	sessionType: string | undefined,
 	currentModeKind: ChatModeKind,
 	location: ChatAgentLocation,
+	isInlineChatV2Enabled: boolean,
 ): ILanguageModelChatMetadataAndIdentifier[] {
 	if (sessionType && sessionType !== 'local' && hasModelsTargetingSession(models, sessionType)) {
 		return models.filter(entry =>
@@ -37,7 +39,7 @@ export function filterModelsForSession(
 		!entry.metadata?.targetChatSessionType &&
 		entry.metadata?.isUserSelectable &&
 		isModelSupportedForMode(entry, currentModeKind) &&
-		isModelSupportedForInlineChat(entry, location)
+		isModelSupportedForInlineChat(entry, location, isInlineChatV2Enabled)
 	);
 }
 
@@ -60,8 +62,9 @@ export function isModelSupportedForMode(
 export function isModelSupportedForInlineChat(
 	model: ILanguageModelChatMetadataAndIdentifier,
 	location: ChatAgentLocation,
+	isInlineChatV2Enabled: boolean,
 ): boolean {
-	if (location !== ChatAgentLocation.EditorInline) {
+	if (location !== ChatAgentLocation.EditorInline || !isInlineChatV2Enabled) {
 		return true;
 	}
 	return !!model.metadata.capabilities?.toolCalling;
@@ -164,7 +167,7 @@ export function shouldResetModelToDefault(
 	}
 
 	// Model not supported for inline chat
-	if (!isModelSupportedForInlineChat(currentModel, context.location)) {
+	if (!isModelSupportedForInlineChat(currentModel, context.location, context.isInlineChatV2Enabled)) {
 		return true;
 	}
 
@@ -213,7 +216,7 @@ export function resolveModelFromSyncState(
 		if (!isModelSupportedForMode(stateModel, context.currentModeKind)) {
 			return { action: 'default' };
 		}
-		if (!isModelSupportedForInlineChat(stateModel, context.location)) {
+		if (!isModelSupportedForInlineChat(stateModel, context.location, context.isInlineChatV2Enabled)) {
 			return { action: 'default' };
 		}
 	}
