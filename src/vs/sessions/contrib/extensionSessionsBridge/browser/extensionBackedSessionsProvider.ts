@@ -19,7 +19,7 @@ import { ChatViewPaneTarget, IChatWidgetService } from '../../../../workbench/co
 import { IChatSendRequestOptions, IChatService } from '../../../../workbench/contrib/chat/common/chatService/chatService.js';
 import { IChatSessionsService } from '../../../../workbench/contrib/chat/common/chatSessionsService.js';
 import { ChatAgentLocation, ChatModeKind } from '../../../../workbench/contrib/chat/common/constants.js';
-import { IChat, ISession, ISessionCapabilities, ISessionType, ISessionWorkspace, ISessionWorkspaceBrowseAction, SessionStatus } from '../../../services/sessions/common/session.js';
+import { IChat, ISession, ISessionCapabilities, ISessionChangeset, ISessionType, ISessionWorkspace, ISessionWorkspaceBrowseAction, SessionStatus } from '../../../services/sessions/common/session.js';
 import { ISessionChangeEvent, ISessionsProvider, ISendRequestOptions } from '../../../services/sessions/common/sessionsProvider.js';
 import { BrowseActionInfo, ProviderInfo, SESSION_BRIDGE_COMMANDS, SessionTypeInfo, WorkspaceInfo } from '../common/extensionSessionsProtocol.js';
 
@@ -185,8 +185,9 @@ export class ExtensionBackedSessionsProvider extends Disposable implements ISess
 		const localId = `ext-${nextSessionId++}`;
 		const sessionId = `${this.id}:${localId}`;
 		const now = new Date();
+		const sessionType = sessionTypeId || this._sessionTypes[0]?.id || this.id;
 
-		const chatResource = URI.parse(`${this.id}://${localId}/chat/main`);
+		const chatResource = URI.parse(`${sessionType}://${localId}/chat/main`);
 		const mainChat: IChat = {
 			resource: chatResource,
 			createdAt: now,
@@ -194,6 +195,7 @@ export class ExtensionBackedSessionsProvider extends Disposable implements ISess
 			updatedAt: observableValue('chat-updatedAt', now),
 			status: observableValue('chat-status', SessionStatus.Untitled),
 			changes: observableValue('chat-changes', []),
+			changesets: observableValue<readonly ISessionChangeset[]>('chat-changesets', []),
 			modelId: observableValue('chat-modelId', this._defaultModelId),
 			mode: observableValue('chat-mode', undefined),
 			isArchived: observableValue('chat-isArchived', false),
@@ -202,10 +204,9 @@ export class ExtensionBackedSessionsProvider extends Disposable implements ISess
 			lastTurnEnd: observableValue('chat-lastTurnEnd', undefined),
 		};
 
-		const sessionType = sessionTypeId || this._sessionTypes[0]?.id || this.id;
 		const session: ISession = {
 			sessionId,
-			resource: URI.parse(`${this.id}://${localId}`),
+			resource: URI.parse(`${sessionType}://${localId}`),
 			providerId: this.id,
 			sessionType,
 			icon: this.icon,
@@ -215,6 +216,7 @@ export class ExtensionBackedSessionsProvider extends Disposable implements ISess
 			updatedAt: observableValue('updatedAt', now),
 			status: observableValue('status', SessionStatus.Untitled),
 			changes: observableValue('changes', []),
+			changesets: observableValue<readonly ISessionChangeset[]>('changesets', []),
 			modelId: observableValue('modelId', this._defaultModelId),
 			mode: observableValue('mode', undefined),
 			loading: observableValue('loading', false),

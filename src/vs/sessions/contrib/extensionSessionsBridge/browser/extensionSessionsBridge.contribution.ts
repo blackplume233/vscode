@@ -53,7 +53,7 @@ class ExtensionSessionsBridgeContribution extends Disposable implements IWorkben
 			return;
 		}
 
-		const defaultModelId = productService.defaultChatAgent?.completionsAdvancedSetting ?? nativeProviderId;
+		const defaultModelId = 'gas-codex/gpt-5.4';
 
 		logService.info('[ExtensionSessionsBridge] Registering bridge activate command for provider:', nativeProviderId);
 
