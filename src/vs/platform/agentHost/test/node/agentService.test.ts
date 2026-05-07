@@ -18,7 +18,7 @@ import { hasKey } from '../../../../base/common/types.js';
 import { NullLogService } from '../../../log/common/log.js';
 import { FileService } from '../../../files/common/fileService.js';
 import { InMemoryFileSystemProvider } from '../../../files/common/inMemoryFilesystemProvider.js';
-import { AgentSession } from '../../common/agentService.js';
+import { AgentSession, type ExtensionBackedAgentHostProgress, type IExtensionBackedAgentHostRegistration, type IExtensionBackedAgentHostRequest } from '../../common/agentService.js';
 import { ISessionDatabase, ISessionDataService } from '../../common/sessionDataService.js';
 import { SessionDatabase } from '../../node/sessionDatabase.js';
 import { ActionType, ActionEnvelope } from '../../common/state/sessionActions.js';
@@ -29,6 +29,33 @@ import { MockAgent, ScriptedMockAgent } from './mockAgent.js';
 import { mapSessionEventsToHistoryRecords } from './historyRecordFixtures.js';
 import { type ISessionEvent } from '../../node/copilot/mapSessionEvents.js';
 import { createNoopGitService, createSessionDataService } from '../common/sessionTestHelpers.js';
+
+class CapturingLogService extends NullLogService {
+	readonly warnings: string[] = [];
+
+	override warn(message: string, ...args: unknown[]): void {
+		this.warnings.push([message, ...args].map(value => String(value)).join(' '));
+	}
+}
+
+function extensionBackedRegistration(handle = 1): IExtensionBackedAgentHostRegistration {
+	return {
+		handle,
+		id: 'gas',
+		displayName: 'Game Agent Studio',
+		description: 'Extension-backed GAS provider',
+	};
+}
+
+async function waitForCondition(predicate: () => boolean): Promise<void> {
+	for (let attempt = 0; attempt < 20; attempt++) {
+		if (predicate()) {
+			return;
+		}
+		await new Promise(resolve => setTimeout(resolve, 5));
+	}
+	assert.ok(predicate(), 'condition was not met in time');
+}
 
 /**
  * Loads a JSONL fixture of raw Copilot SDK events, runs them through
@@ -123,6 +150,109 @@ suite('AgentService (node dispatcher)', () => {
 				action: { type: ActionType.SessionResponsePart, session: session.toString(), turnId: 'turn-1', part: { kind: ResponsePartKind.Markdown, id: 'msg-1', content: 'hello' } },
 			});
 			assert.ok(envelopes.some(e => e.action.type === ActionType.SessionResponsePart));
+		});
+
+		test('registers and unregisters extension-backed providers', async () => {
+			const requests: IExtensionBackedAgentHostRequest[] = [];
+			disposables.add(service.onDidExtensionBackedAgentHostRequest(request => requests.push(request)));
+			await service.registerExtensionBackedAgentHostProvider(extensionBackedRegistration());
+
+			const creating = service.createSession({ provider: 'gas' });
+			await waitForCondition(() => requests.length === 1);
+			const request = requests[0];
+			assert.ok(request);
+			service.completeExtensionBackedAgentHostRequest({
+				requestId: request.requestId,
+				ok: true,
+				value: { id: 'extension-session-1' },
+			});
+
+			const session = await creating;
+			assert.strictEqual(session.toString(), 'gas:/extension-session-1');
+
+			await service.unregisterExtensionBackedAgentHostProvider(1);
+			await assert.rejects(() => service.createSession({ provider: 'gas' }), /No agent provider registered/);
+		});
+
+		test('rejects duplicate extension-backed provider handles', async () => {
+			await service.registerExtensionBackedAgentHostProvider(extensionBackedRegistration());
+
+			await assert.rejects(
+				() => service.registerExtensionBackedAgentHostProvider(extensionBackedRegistration()),
+				/already registered/,
+			);
+		});
+
+		test('rejects unsupported extension-backed provider API versions', async () => {
+			await assert.rejects(
+				() => service.registerExtensionBackedAgentHostProvider({
+					...extensionBackedRegistration(),
+					apiVersion: 999,
+				}),
+				/Unsupported extension-backed Agent Host provider API version/,
+			);
+			await assert.rejects(() => service.createSession({ provider: 'gas' }), /No agent provider registered/);
+		});
+
+		test('rejects extension-backed providers missing required capabilities', async () => {
+			await assert.rejects(
+				() => service.registerExtensionBackedAgentHostProvider({
+					...extensionBackedRegistration(),
+					capabilities: ['other-capability'],
+				}),
+				/missing required capability: agentHostProvider/,
+			);
+			await assert.rejects(() => service.createSession({ provider: 'gas' }), /No agent provider registered/);
+		});
+
+		test('rejects duplicate extension-backed provider ids without poisoning handle cleanup', async () => {
+			await service.registerExtensionBackedAgentHostProvider(extensionBackedRegistration(1));
+
+			await assert.rejects(
+				() => service.registerExtensionBackedAgentHostProvider(extensionBackedRegistration(2)),
+				/already registered/,
+			);
+			await service.unregisterExtensionBackedAgentHostProvider(2);
+			await service.unregisterExtensionBackedAgentHostProvider(1);
+
+			await assert.rejects(() => service.createSession({ provider: 'gas' }), /No agent provider registered/);
+		});
+
+		test('rejects pending extension-backed provider requests on unregister', async () => {
+			const requests: IExtensionBackedAgentHostRequest[] = [];
+			disposables.add(service.onDidExtensionBackedAgentHostRequest(request => requests.push(request)));
+			await service.registerExtensionBackedAgentHostProvider(extensionBackedRegistration());
+
+			const creating = service.createSession({ provider: 'gas' });
+			await waitForCondition(() => requests.length === 1);
+			await service.unregisterExtensionBackedAgentHostProvider(1);
+
+			await assert.rejects(() => creating, /provider unregistered: gas/);
+		});
+
+		test('cleans up extension-backed provider on extension host dispose simulation', async () => {
+			await service.registerExtensionBackedAgentHostProvider(extensionBackedRegistration());
+
+			await service.unregisterExtensionBackedAgentHostProvider(1);
+
+			await assert.rejects(() => service.createSession({ provider: 'gas' }), /No agent provider registered/);
+			await service.registerExtensionBackedAgentHostProvider(extensionBackedRegistration());
+			await service.unregisterExtensionBackedAgentHostProvider(1);
+		});
+
+		test('drops progress for unknown extension-backed provider handles', () => {
+			const logService = new CapturingLogService();
+			const localService = disposables.add(new AgentService(logService, fileService, nullSessionDataService, { _serviceBrand: undefined } as IProductService, createNoopGitService()));
+			const progress: ExtensionBackedAgentHostProgress = {
+				type: 'markdownDelta',
+				sessionId: 'missing-session',
+				requestId: 'turn-1',
+				text: 'ignored',
+			};
+
+			localService.acceptExtensionBackedAgentHostProgress(404, progress);
+
+			assert.ok(logService.warnings.some(warning => warning.includes('unknown extension-backed Agent Host provider')));
 		});
 	});
 

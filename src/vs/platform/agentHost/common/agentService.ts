@@ -158,6 +158,61 @@ export interface IAgentDescriptor {
 	readonly description: string;
 }
 
+// ---- Extension-backed agent provider bridge --------------------------------
+
+export type ExtensionBackedAgentHostMethod =
+	| 'createSession'
+	| 'sendMessage'
+	| 'respondToConfirmation'
+	| 'respondToInputRequest'
+	| 'getSessionHistory'
+	| 'listSessions'
+	| 'changeModel'
+	| 'abortSession'
+	| 'resolveSessionConfig'
+	| 'sessionConfigCompletions'
+	| 'disposeSession';
+
+export interface IExtensionBackedAgentHostRegistration {
+	readonly handle: number;
+	readonly id: AgentProvider;
+	readonly displayName: string;
+	readonly description?: string;
+	readonly models?: readonly IAgentModelInfo[];
+	readonly apiVersion?: number;
+	readonly capabilities?: readonly string[];
+}
+
+export interface IExtensionBackedAgentHostRequest {
+	readonly requestId: string;
+	readonly handle: number;
+	readonly method: ExtensionBackedAgentHostMethod;
+	readonly args: readonly unknown[];
+}
+
+export interface IExtensionBackedAgentHostResponse {
+	readonly requestId: string;
+	readonly ok: boolean;
+	readonly value?: unknown;
+	readonly error?: string;
+}
+
+export type ExtensionBackedAgentHostProgress =
+	| { readonly type: 'markdownDelta'; readonly sessionId: string; readonly requestId: string; readonly text: string }
+	| { readonly type: 'reasoningDelta'; readonly sessionId: string; readonly requestId: string; readonly text: string }
+	| { readonly type: 'toolStart'; readonly sessionId: string; readonly requestId: string; readonly toolCallId: string; readonly name: string; readonly title?: string; readonly input?: unknown }
+	| { readonly type: 'toolDelta'; readonly sessionId: string; readonly requestId: string; readonly toolCallId: string; readonly inputDelta?: unknown; readonly outputDelta?: unknown; readonly status?: string }
+	| { readonly type: 'toolPendingConfirmation'; readonly sessionId: string; readonly requestId: string; readonly toolCallId: string; readonly title: string; readonly message?: string; readonly options?: readonly { readonly id: string; readonly label: string; readonly kind: string }[] }
+	| { readonly type: 'toolComplete'; readonly sessionId: string; readonly requestId: string; readonly toolCallId: string; readonly output?: unknown; readonly error?: string }
+	| { readonly type: 'inputRequested'; readonly sessionId: string; readonly requestId: string; readonly prompt: string; readonly placeholder?: string }
+	| { readonly type: 'turnComplete'; readonly sessionId: string; readonly requestId: string; readonly stopReason?: string }
+	| { readonly type: 'turnCancelled'; readonly sessionId: string; readonly requestId: string }
+	| { readonly type: 'titleChanged'; readonly sessionId: string; readonly title: string }
+	| { readonly type: 'modelChanged'; readonly sessionId: string; readonly model: ModelSelection }
+	| { readonly type: 'usage'; readonly sessionId: string; readonly requestId: string; readonly used: number; readonly size: number; readonly cost?: { readonly amount: number; readonly currency: string } }
+	| { readonly type: 'error'; readonly sessionId: string; readonly requestId?: string; readonly message: string; readonly code?: string }
+	| { readonly type: 'diffsChanged'; readonly sessionId: string; readonly diffs: readonly FileEdit[] };
+
 // ---- Auth types (RFC 9728 / RFC 6750 inspired) -----------------------------
 
 /**
@@ -452,7 +507,7 @@ export interface IAgent {
 	changeModel(session: URI, model: ModelSelection): Promise<void>;
 
 	/** Respond to a pending permission request from the SDK. */
-	respondToPermissionRequest(requestId: string, approved: boolean): void;
+	respondToPermissionRequest(requestId: string, approved: boolean, selectedOptionId?: string): void;
 
 	/** Respond to a pending user input request from the SDK's ask_user tool. */
 	respondToUserInputRequest(requestId: string, response: SessionInputResponseKind, answers?: Record<string, SessionInputAnswer>): void;
@@ -571,6 +626,13 @@ export const IAgentService = createDecorator<IAgentService>('agentService');
  */
 export interface IAgentService {
 	readonly _serviceBrand: undefined;
+
+	readonly onDidExtensionBackedAgentHostRequest: Event<IExtensionBackedAgentHostRequest>;
+
+	registerExtensionBackedAgentHostProvider(registration: IExtensionBackedAgentHostRegistration): Promise<void>;
+	unregisterExtensionBackedAgentHostProvider(handle: number): Promise<void>;
+	completeExtensionBackedAgentHostRequest(response: IExtensionBackedAgentHostResponse): void;
+	acceptExtensionBackedAgentHostProgress(handle: number, progress: ExtensionBackedAgentHostProgress): void;
 
 	/**
 	 * Authenticate for a protected resource on the server.
@@ -740,6 +802,12 @@ export interface IAgentHostService extends IAgentConnection {
 
 	readonly onAgentHostExit: Event<number>;
 	readonly onAgentHostStart: Event<void>;
+	readonly onDidExtensionBackedAgentHostRequest: Event<IExtensionBackedAgentHostRequest>;
+
+	registerExtensionBackedAgentHostProvider(registration: IExtensionBackedAgentHostRegistration): Promise<void>;
+	unregisterExtensionBackedAgentHostProvider(handle: number): Promise<void>;
+	completeExtensionBackedAgentHostRequest(response: IExtensionBackedAgentHostResponse): void;
+	acceptExtensionBackedAgentHostProgress(handle: number, progress: ExtensionBackedAgentHostProgress): void;
 
 	/**
 	 * `true` while we are in the middle of authenticating against the local

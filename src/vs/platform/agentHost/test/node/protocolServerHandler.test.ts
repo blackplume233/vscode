@@ -10,7 +10,7 @@ import { URI } from '../../../../base/common/uri.js';
 import { runWithFakedTimers } from '../../../../base/test/common/timeTravelScheduler.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/common/utils.js';
 import { NullLogService } from '../../../log/common/log.js';
-import { type IAgentCreateSessionConfig, type IAgentResolveSessionConfigParams, type IAgentService, type IAgentSessionConfigCompletionsParams, type IAgentSessionMetadata, type AuthenticateParams, type AuthenticateResult } from '../../common/agentService.js';
+import { type ExtensionBackedAgentHostProgress, type IAgentCreateSessionConfig, type IAgentResolveSessionConfigParams, type IAgentService, type IAgentSessionConfigCompletionsParams, type IAgentSessionMetadata, type AuthenticateParams, type AuthenticateResult, type IExtensionBackedAgentHostRegistration, type IExtensionBackedAgentHostRequest, type IExtensionBackedAgentHostResponse } from '../../common/agentService.js';
 import { ListSessionsResult, ResourceReadResult, ResolveSessionConfigResult, SessionConfigCompletionsResult } from '../../common/state/protocol/commands.js';
 import { ActionType, type IRootConfigChangedAction, type SessionAction, type TerminalAction } from '../../common/state/sessionActions.js';
 import { PROTOCOL_VERSION } from '../../common/state/sessionCapabilities.js';
@@ -79,6 +79,8 @@ class MockAgentService implements IAgentService {
 	readonly onDidAction = this._onDidAction.event;
 	private readonly _onDidNotification = new Emitter<import('../../common/state/sessionActions.js').INotification>();
 	readonly onDidNotification = this._onDidNotification.event;
+	private readonly _onDidExtensionBackedAgentHostRequest = new Emitter<IExtensionBackedAgentHostRequest>();
+	readonly onDidExtensionBackedAgentHostRequest = this._onDidExtensionBackedAgentHostRequest.event;
 
 	private _stateManager!: AgentHostStateManager;
 
@@ -123,6 +125,10 @@ class MockAgentService implements IAgentService {
 	unsubscribe(_resource: URI, _clientId: string): void { }
 	async shutdown(): Promise<void> { }
 	async authenticate(_params: AuthenticateParams): Promise<AuthenticateResult> { return { authenticated: true }; }
+	async registerExtensionBackedAgentHostProvider(_registration: IExtensionBackedAgentHostRegistration): Promise<void> { }
+	async unregisterExtensionBackedAgentHostProvider(_handle: number): Promise<void> { }
+	completeExtensionBackedAgentHostRequest(_response: IExtensionBackedAgentHostResponse): void { }
+	acceptExtensionBackedAgentHostProgress(_handle: number, _progress: ExtensionBackedAgentHostProgress): void { }
 	async resourceWrite(_params: ResourceWriteParams): Promise<ResourceWriteResult> { return {}; }
 	async resourceList(uri: URI): Promise<ResourceListResult> {
 		this.browsedUris.push(uri);

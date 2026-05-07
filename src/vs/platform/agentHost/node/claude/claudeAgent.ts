@@ -204,7 +204,7 @@ export class ClaudeAgent extends Disposable implements IAgent {
 		throw new Error('TODO: Phase 6');
 	}
 
-	respondToPermissionRequest(_requestId: string, _approved: boolean): void {
+	respondToPermissionRequest(_requestId: string, _approved: boolean, _selectedOptionId?: string): void {
 		throw new Error('TODO: Phase 7');
 	}
 

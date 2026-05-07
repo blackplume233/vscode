@@ -122,6 +122,7 @@ import { ExtHostChatContext } from './extHostChatContext.js';
 import { ExtHostChatDebug } from './extHostChatDebug.js';
 import { IExtHostMeteredConnection } from './extHostMeteredConnection.js';
 import { IExtHostGitExtensionService } from './extHostGitExtensionService.js';
+import { ExtHostAgentHostProviders } from './extHostAgentHostProviders.js';
 
 export interface IExtensionRegistries {
 	mine: ExtensionDescriptionRegistry;
@@ -166,6 +167,7 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 	const extHostDataChannels = accessor.get(IExtHostDataChannels);
 	const extHostMeteredConnection = accessor.get(IExtHostMeteredConnection);
 	const extHostGitExtensionService = accessor.get(IExtHostGitExtensionService);
+	const extHostAgentHostProviders = rpcProtocol.set(ExtHostContext.ExtHostAgentHostProviders, new ExtHostAgentHostProviders(rpcProtocol, extHostLogService));
 
 	// register addressable instances
 	rpcProtocol.set(ExtHostContext.ExtHostFileSystemInfo, extHostFileSystemInfo);
@@ -1874,12 +1876,19 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 				return extHostSpeech.registerProvider(extension.identifier, id, provider);
 			}
 		};
+		const agentHost = {
+			registerProvider(id: string, provider: unknown, options?: unknown): vscode.Disposable {
+				checkProposedApiEnabled(extension, 'agentHostProvider');
+				return extHostAgentHostProviders.registerProvider(id, provider as never, options as never);
+			}
+		};
 
 		// eslint-disable-next-line local/code-no-dangerous-type-assertions
 		return <typeof vscode>{
 			version: initData.version,
 			// namespaces
 			ai,
+			agentHost,
 			authentication,
 			commands,
 			comments,

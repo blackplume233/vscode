@@ -982,7 +982,7 @@ configurationRegistry.registerConfiguration({
 		[AgentHostEnabledSettingId]: {
 			type: 'boolean',
 			description: nls.localize('chat.agentHost.enabled', "When enabled, some agents run in a separate agent host process."),
-			default: false,
+			default: product.defaultChatAgent?.extensionId === 'blackplume.game-agent-studio',
 			tags: ['experimental', 'advanced'],
 			included: product.quality !== 'stable',
 		},

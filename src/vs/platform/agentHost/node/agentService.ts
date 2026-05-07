@@ -18,7 +18,7 @@ import { FileSystemProviderErrorCode, IFileService, toFileSystemProviderErrorCod
 import { InstantiationService } from '../../instantiation/common/instantiationService.js';
 import { ServiceCollection } from '../../instantiation/common/serviceCollection.js';
 import { ILogService } from '../../log/common/log.js';
-import { AgentProvider, AgentSession, IAgent, IAgentCreateSessionConfig, IAgentMaterializeSessionEvent, IAgentResolveSessionConfigParams, IAgentService, IAgentSessionConfigCompletionsParams, IAgentSessionMetadata, AuthenticateParams, AuthenticateResult } from '../common/agentService.js';
+import { AgentProvider, AgentSession, IAgent, IAgentCreateSessionConfig, IAgentMaterializeSessionEvent, IAgentResolveSessionConfigParams, IAgentService, IAgentSessionConfigCompletionsParams, IAgentSessionMetadata, AuthenticateParams, AuthenticateResult, type ExtensionBackedAgentHostMethod, type ExtensionBackedAgentHostProgress, type IExtensionBackedAgentHostRegistration, type IExtensionBackedAgentHostRequest, type IExtensionBackedAgentHostResponse } from '../common/agentService.js';
 import { ISessionDataService } from '../common/sessionDataService.js';
 import { ActionType, ActionEnvelope, INotification, type IRootConfigChangedAction, type SessionAction, type TerminalAction } from '../common/state/sessionActions.js';
 import type { CreateTerminalParams, ResolveSessionConfigResult, SessionConfigCompletionsResult } from '../common/state/protocol/commands.js';
@@ -32,6 +32,7 @@ import { ISessionDbUriFields, parseSessionDbUri } from './copilot/fileEditTracke
 import { IGitBlobUriFields, parseGitBlobUri } from './gitDiffContent.js';
 import { AgentHostStateManager } from './agentHostStateManager.js';
 import { IAgentHostGitService } from './agentHostGitService.js';
+import { ExtensionBackedAgent } from './extensionBackedAgent.js';
 
 /**
  * Grace period before an empty, unsubscribed session is garbage-collected
@@ -40,6 +41,8 @@ import { IAgentHostGitService } from './agentHostGitService.js';
  * provider-side session, worktree, and on-disk state.
  */
 const SESSION_GC_GRACE_MS = 30_000;
+const EXTENSION_BACKED_AGENT_HOST_API_VERSION = 1;
+const EXTENSION_BACKED_AGENT_HOST_REQUIRED_CAPABILITIES = new Set(['agentHostProvider']);
 
 /**
  * The agent service implementation that runs inside the agent-host utility
@@ -56,6 +59,8 @@ export class AgentService extends Disposable implements IAgentService {
 	/** Protocol: fires for ephemeral notifications (sessionAdded/Removed). */
 	private readonly _onDidNotification = this._register(new Emitter<INotification>());
 	readonly onDidNotification = this._onDidNotification.event;
+	private readonly _onDidExtensionBackedAgentHostRequest = this._register(new Emitter<IExtensionBackedAgentHostRequest>());
+	readonly onDidExtensionBackedAgentHostRequest = this._onDidExtensionBackedAgentHostRequest.event;
 
 	/** Authoritative state manager for the sessions process protocol. */
 	private readonly _stateManager: AgentHostStateManager;
@@ -81,6 +86,8 @@ export class AgentService extends Disposable implements IAgentService {
 	/** Manages PTY-backed terminals for the agent host protocol. */
 	private readonly _terminalManager: AgentHostTerminalManager;
 	private readonly _configurationService: IAgentConfigurationService;
+	private readonly _extensionBackedAgents = new Map<number, ExtensionBackedAgent>();
+	private readonly _extensionBackedPendingRequests = new Map<string, { handle: number; resolve(value: unknown): void; reject(reason: unknown): void }>();
 
 	/**
 	 * Authoritative server-side per-resource subscription refcount, keyed by
@@ -163,6 +170,73 @@ export class AgentService extends Disposable implements IAgentService {
 
 		// Update root state with current agents list
 		this._updateAgents();
+	}
+
+	async registerExtensionBackedAgentHostProvider(registration: IExtensionBackedAgentHostRegistration): Promise<void> {
+		if (this._extensionBackedAgents.has(registration.handle)) {
+			throw new Error(`Extension-backed agent provider already registered: ${registration.handle}`);
+		}
+		if ((registration.apiVersion ?? EXTENSION_BACKED_AGENT_HOST_API_VERSION) !== EXTENSION_BACKED_AGENT_HOST_API_VERSION) {
+			throw new Error(`Unsupported extension-backed Agent Host provider API version: ${registration.apiVersion}`);
+		}
+		const capabilities = new Set(registration.capabilities ?? ['agentHostProvider']);
+		for (const capability of EXTENSION_BACKED_AGENT_HOST_REQUIRED_CAPABILITIES) {
+			if (!capabilities.has(capability)) {
+				throw new Error(`Extension-backed Agent Host provider missing required capability: ${capability}`);
+			}
+		}
+		const agent = this._register(new ExtensionBackedAgent(registration, (handle, method, args) => this._requestExtensionBackedAgentHostProvider(handle, method, args)));
+		this.registerProvider(agent);
+		this._extensionBackedAgents.set(registration.handle, agent);
+	}
+
+	async unregisterExtensionBackedAgentHostProvider(handle: number): Promise<void> {
+		const agent = this._extensionBackedAgents.get(handle);
+		if (!agent) {
+			return;
+		}
+		this._extensionBackedAgents.delete(handle);
+		this._providers.delete(agent.id);
+		for (const [requestId, pending] of this._extensionBackedPendingRequests) {
+			if (pending.handle === handle) {
+				this._extensionBackedPendingRequests.delete(requestId);
+				pending.reject(new Error(`Extension-backed agent provider unregistered: ${agent.id}`));
+			}
+		}
+		agent.dispose();
+		this._updateAgents();
+	}
+
+	completeExtensionBackedAgentHostRequest(response: IExtensionBackedAgentHostResponse): void {
+		const pending = this._extensionBackedPendingRequests.get(response.requestId);
+		if (!pending) {
+			this._logService.warn(`[AgentService] Unknown extension-backed Agent Host request: ${response.requestId}`);
+			return;
+		}
+		this._extensionBackedPendingRequests.delete(response.requestId);
+		if (response.ok) {
+			pending.resolve(response.value);
+		} else {
+			pending.reject(new Error(response.error ?? 'Extension-backed Agent Host provider failed'));
+		}
+	}
+
+	acceptExtensionBackedAgentHostProgress(handle: number, progress: ExtensionBackedAgentHostProgress): void {
+		const agent = this._extensionBackedAgents.get(handle);
+		if (!agent) {
+			this._logService.warn(`[AgentService] Progress for unknown extension-backed Agent Host provider: ${handle}`);
+			return;
+		}
+		agent.acceptProgress(progress);
+	}
+
+	private _requestExtensionBackedAgentHostProvider(handle: number, method: ExtensionBackedAgentHostMethod, args: readonly unknown[]): Promise<unknown> {
+		const requestId = generateUuid();
+		const promise = new Promise<unknown>((resolve, reject) => {
+			this._extensionBackedPendingRequests.set(requestId, { handle, resolve, reject });
+		});
+		this._onDidExtensionBackedAgentHostRequest.fire({ requestId, handle, method, args });
+		return promise;
 	}
 
 	// ---- auth ---------------------------------------------------------------

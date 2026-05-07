@@ -98,6 +98,7 @@ import './mainThreadChatStatus.js';
 import './mainThreadChatInputNotification.js';
 import './mainThreadChatOutputRenderer.js';
 import './mainThreadChatSessions.js';
+import './mainThreadAgentHostProviders.js';
 import './mainThreadDataChannels.js';
 import './mainThreadMeteredConnection.js';
 import './mainThreadGitExtensionService.js';

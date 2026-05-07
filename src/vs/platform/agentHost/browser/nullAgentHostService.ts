@@ -7,7 +7,7 @@ import { Event } from '../../../base/common/event.js';
 import { IReference } from '../../../base/common/lifecycle.js';
 import { constObservable, IObservable } from '../../../base/common/observable.js';
 import { URI } from '../../../base/common/uri.js';
-import type { IAgentCreateSessionConfig, IAgentHostInspectInfo, IAgentHostService, IAgentHostSocketInfo, IAgentResolveSessionConfigParams, IAgentSessionConfigCompletionsParams, IAgentSessionMetadata, AuthenticateParams, AuthenticateResult } from '../common/agentService.js';
+import type { ExtensionBackedAgentHostProgress, IAgentCreateSessionConfig, IAgentHostInspectInfo, IAgentHostService, IAgentHostSocketInfo, IAgentResolveSessionConfigParams, IAgentSessionConfigCompletionsParams, IAgentSessionMetadata, AuthenticateParams, AuthenticateResult, IExtensionBackedAgentHostRegistration, IExtensionBackedAgentHostRequest, IExtensionBackedAgentHostResponse } from '../common/agentService.js';
 import type { IAgentSubscription } from '../common/state/agentSubscription.js';
 import type { CreateTerminalParams, ResolveSessionConfigResult, SessionConfigCompletionsResult } from '../common/state/protocol/commands.js';
 import type { ActionEnvelope, INotification, IRootConfigChangedAction, SessionAction, TerminalAction } from '../common/state/sessionActions.js';
@@ -28,6 +28,7 @@ export class NullAgentHostService implements IAgentHostService {
 	readonly onAgentHostStart = Event.None;
 	readonly onDidNotification: Event<INotification> = Event.None;
 	readonly onDidAction: Event<ActionEnvelope> = Event.None;
+	readonly onDidExtensionBackedAgentHostRequest: Event<IExtensionBackedAgentHostRequest> = Event.None;
 
 	readonly authenticationPending: IObservable<boolean> = constObservable(false);
 	setAuthenticationPending(_pending: boolean): void { /* no-op */ }
@@ -39,6 +40,10 @@ export class NullAgentHostService implements IAgentHostService {
 	dispatch(_action: SessionAction | TerminalAction | IRootConfigChangedAction): void { notSupported(); }
 
 	async restartAgentHost(): Promise<void> { notSupported(); }
+	async registerExtensionBackedAgentHostProvider(_registration: IExtensionBackedAgentHostRegistration): Promise<void> { notSupported(); }
+	async unregisterExtensionBackedAgentHostProvider(_handle: number): Promise<void> { }
+	completeExtensionBackedAgentHostRequest(_response: IExtensionBackedAgentHostResponse): void { }
+	acceptExtensionBackedAgentHostProgress(_handle: number, _progress: ExtensionBackedAgentHostProgress): void { }
 	async authenticate(_params: AuthenticateParams): Promise<AuthenticateResult> { return notSupported(); }
 	async listSessions(): Promise<IAgentSessionMetadata[]> { return []; }
 	async createSession(_config?: IAgentCreateSessionConfig): Promise<URI> { return notSupported(); }

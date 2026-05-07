@@ -719,7 +719,7 @@ export class AgentSideEffects extends Disposable {
 				if (agentId) {
 					this._toolCallAgents.delete(toolCallKey);
 					const agent = this._options.agents.get().find(a => a.id === agentId);
-					agent?.respondToPermissionRequest(action.toolCallId, action.approved);
+					agent?.respondToPermissionRequest(action.toolCallId, action.approved, action.selectedOptionId);
 				} else {
 					this._logService.warn(`[AgentSideEffects] No agent for tool call confirmation: ${action.toolCallId}`);
 				}

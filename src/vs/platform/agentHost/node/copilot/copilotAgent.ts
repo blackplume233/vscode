@@ -1269,7 +1269,7 @@ export class CopilotAgent extends Disposable implements IAgent {
 		return this._shutdownPromise;
 	}
 
-	respondToPermissionRequest(requestId: string, approved: boolean): void {
+	respondToPermissionRequest(requestId: string, approved: boolean, _selectedOptionId?: string): void {
 		for (const [, session] of this._sessions) {
 			if (session.respondToPermissionRequest(requestId, approved)) {
 				return;

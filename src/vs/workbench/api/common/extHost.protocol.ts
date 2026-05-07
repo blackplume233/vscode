@@ -101,6 +101,7 @@ import { TerminalShellExecutionCommandLineConfidence } from './extHostTypes.js';
 import * as tasks from './shared/tasks.js';
 import { PromptsType } from '../../contrib/chat/common/promptSyntax/promptTypes.js';
 import { CDPEvent, CDPRequest, CDPResponse } from '../../../platform/browserView/common/cdp/types.js';
+import type { ExtensionBackedAgentHostProgress, IExtensionBackedAgentHostRegistration, IExtensionBackedAgentHostRequest, IExtensionBackedAgentHostResponse } from '../../../platform/agentHost/common/agentService.js';
 
 export type IconPathDto =
 	| UriComponents
@@ -1555,6 +1556,16 @@ export interface MainThreadChatDebugShape extends IDisposable {
 	$acceptChatDebugEvent(handle: number, event: IChatDebugEventDto): void;
 	$subscribeToCoreDebugEvents(): void;
 	$unsubscribeFromCoreDebugEvents(): void;
+}
+
+export interface MainThreadAgentHostProvidersShape extends IDisposable {
+	$registerAgentHostProvider(registration: IExtensionBackedAgentHostRegistration): Promise<void>;
+	$unregisterAgentHostProvider(handle: number): Promise<void>;
+	$acceptAgentHostProgress(handle: number, progress: ExtensionBackedAgentHostProgress): void;
+}
+
+export interface ExtHostAgentHostProvidersShape {
+	$handleAgentHostRequest(request: IExtensionBackedAgentHostRequest): Promise<IExtensionBackedAgentHostResponse>;
 }
 
 export interface MainThreadEmbeddingsShape extends IDisposable {
@@ -3932,6 +3943,7 @@ export const MainContext = {
 	MainThreadChatOutputRenderer: createProxyIdentifier<MainThreadChatOutputRendererShape>('MainThreadChatOutputRenderer'),
 	MainThreadChatContext: createProxyIdentifier<MainThreadChatContextShape>('MainThreadChatContext'),
 	MainThreadChatDebug: createProxyIdentifier<MainThreadChatDebugShape>('MainThreadChatDebug'),
+	MainThreadAgentHostProviders: createProxyIdentifier<MainThreadAgentHostProvidersShape>('MainThreadAgentHostProviders'),
 	MainThreadBrowsers: createProxyIdentifier<MainThreadBrowsersShape>('MainThreadBrowsers'),
 };
 
@@ -3995,6 +4007,7 @@ export const ExtHostContext = {
 	ExtHostChatProvider: createProxyIdentifier<ExtHostLanguageModelsShape>('ExtHostChatProvider'),
 	ExtHostChatContext: createProxyIdentifier<ExtHostChatContextShape>('ExtHostChatContext'),
 	ExtHostChatDebug: createProxyIdentifier<ExtHostChatDebugShape>('ExtHostChatDebug'),
+	ExtHostAgentHostProviders: createProxyIdentifier<ExtHostAgentHostProvidersShape>('ExtHostAgentHostProviders'),
 	ExtHostSpeech: createProxyIdentifier<ExtHostSpeechShape>('ExtHostSpeech'),
 	ExtHostEmbeddings: createProxyIdentifier<ExtHostEmbeddingsShape>('ExtHostEmbeddings'),
 	ExtHostAiRelatedInformation: createProxyIdentifier<ExtHostAiRelatedInformationShape>('ExtHostAiRelatedInformation'),

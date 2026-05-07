@@ -103,7 +103,6 @@
 		"entitlementUrl": "http://127.0.0.1:34590/entitlements",
 		"tokenEntitlementUrl": "http://127.0.0.1:34590/token-entitlements",
 		"mcpRegistryDataUrl": "",
-		"nativeSessionsProviderId": "game-agent",
 		"skipExtensionInstall": true
 	},
 	"extensionAllowedProposedApi": [
